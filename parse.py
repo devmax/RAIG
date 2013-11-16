@@ -1,6 +1,8 @@
 import csv
-import numpy as numpy
+
 import matplotlib.pyplot as plt
+import numpy as numpy
+
 
 def separate(files):
     obsx = [[] for i in range(len(files))]
@@ -19,17 +21,17 @@ def separate(files):
                 obsz[j].append(float(sublist[2])*0.0001309)
                 temp[j].append(float(sublist[3])*0.0001309)
 
-    observations = numpy.array([numpy.array(zip(*obsx)).T,numpy.array(zip(*obsy)).T,numpy.array(zip(*obsz)).T])
+    observations = numpy.array([numpy.array(zip(*obsx)).T,
+                                numpy.array(zip(*obsy)).T,
+                                numpy.array(zip(*obsz)).T])
     temp = numpy.array(temp)
 
-    print "Shape is ",observations.shape
+    print "Shape is ", observations.shape
 
-    return observations,temp
+    return observations, temp
 
 if __name__ == "__main__":
-    files = ['big0.csv','big1.csv','big2.csv','big3.csv']
-    [obs,temp] = separate(files)
+    files = ['big0.csv', 'big1.csv', 'big2.csv', 'big3.csv']
+    [obs, temp] = separate(files)
 
     plt.show()
-
-
