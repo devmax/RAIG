@@ -42,8 +42,8 @@ if __name__ == "__main__":
     plt.plot(obs[1, :])
 
     plt.figure(3)
-    plt.plot(np.cumsum(obs[0, :]),'b')
-    plt.plot(np.cumsum(obs[1, :]),'r')
-    plt.plot(np.cumsum(omega),'g')
+    plt.plot(np.cumsum(obs[0, :]), 'b')
+    plt.plot(np.cumsum(obs[1, :]), 'r')
+    plt.plot(np.cumsum(omega), 'g')
 
     plt.show()
