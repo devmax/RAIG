@@ -6,8 +6,8 @@ def generate(num, samples):
     """
     Generate bias data to be added to actual 'omega'
     """
-    sigmaB = [0.000125, 0.000375]
-    sigmaW = 0.015
+    sigmaB = [0.0002, 0.0003]
+    sigmaW = 0.0085
     #sigmaN = 0.03
 
     initB = [0.025, -0.040]
@@ -42,8 +42,8 @@ if __name__ == "__main__":
     plt.plot(obs[1, :])
 
     plt.figure(3)
-    plt.plot(np.cumsum(obs[0, :]))
-    plt.plot(np.cumsum(obs[1, :]))
-    plt.plot(np.cumsum(omega))
+    plt.plot(np.cumsum(obs[0, :]),'b')
+    plt.plot(np.cumsum(obs[1, :]),'r')
+    plt.plot(np.cumsum(omega),'g')
 
     plt.show()
