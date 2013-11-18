@@ -6,9 +6,17 @@ def generate(num, samples):
     """
     Generate bias data to be added to actual 'omega'
     """
+    clamp = lambda n, low, high: max(min(high, n), low)
+
     sigmaB = [0.0002, 0.0003]
     sigmaW = 0.0085
     #sigmaN = 0.03
+
+    max_dw = 0.035
+    min_dw = 0.005
+
+    max_db = 0.001
+    min_db = 0.00001
 
     initB = [0.025, -0.040]
 
@@ -24,8 +32,17 @@ def generate(num, samples):
 
     for i in xrange(1, samples):
         for j in xrange(num):
-            bias[j, i] = bias[j, i-1] + np.random.normal(0, sigmaB[j])
-        omega[i] = omega[i-1] + np.random.normal(0, sigmaW)
+            db = np.random.normal(0, sigmaB[j])
+            db = clamp(db, -max_db, max_db)
+            if abs(db) < min_db:
+                db = 0.
+            bias[j, i] = bias[j, i-1] + db
+
+        dw = np.random.normal(0, sigmaW)
+        dw = clamp(dw, -max_dw, max_dw)
+        if abs(dw) < min_dw:
+            dw = 0.
+        omega[i] = omega[i-1] + dw
 
         obs[:, i] = bias[:, i] + omega[i]
 
