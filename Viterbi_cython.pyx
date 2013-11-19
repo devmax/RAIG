@@ -61,9 +61,9 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     cdef int Ns = obs.shape[0]
 
     cdef np.ndarray[np.double_t, ndim=2] V = np.ones([N, Nw])*-1500
-    cdef np.ndarray[np.int_t, ndim=2] B = np.empty([N, Nw])
+    cdef np.ndarray[np.int_t, ndim=2] B = np.empty([N, Nw], dtype=np.int)
 
-    cdef np.ndarray[np.int_t, ndim=1] Bp = np.empty(N)
+    cdef np.ndarray[np.int_t, ndim=1] Bp = np.empty(N, dtype=np.int)
 
     cdef np.ndarray[np.double_t, ndim=2] Tw = createMatrices(Nw, resW, sigmaW)
 

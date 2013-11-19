@@ -1,1 +1,6 @@
 *.pyc
+*.so
+*.c
+build/*
+RAIG/
+bin/
