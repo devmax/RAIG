@@ -20,11 +20,9 @@ class Viterbi():
 
     N = None
     Nw = None
-    Nb = None
     Ns = None
 
     states = None
-    biases = None
 
     V = None
     B = None
@@ -62,20 +60,15 @@ class Viterbi():
 
         lim = max((minw*-1), maxw)
 
-        self.states = np.concatenate((np.arange(-lim, 0, self.resW),
+        self.states = np.concatenate((np.arange(0, -lim, -self.resW)[:0:-1],
                                       np.arange(0, lim, self.resW)), 1)
-        self.biases = np.concatenate((np.arange(-0.5, 0, self.resB),
-                                      np.arange(0, 0.5, self.resB)), 1)
 
         self.Nw = self.states.shape[0]
-        self.Nb = self.biases.shape[0]
 
         self.Tw = np.empty([self.Nw, self.Nw])
 
-        self.V = np.empty([self.N, self.Nw])
+        self.V = np.ones([self.N, self.Nw])*-1500
         self.B = np.empty([self.N, self.Nw])
-
-        self.V[:, :] = -15000
 
         self.Bp = np.empty(self.N)
 
@@ -89,12 +82,21 @@ class Viterbi():
             for j in xrange(self.Nw):
                 self.Tw[i, j] = prob.pdf((j-i)*self.resW)
             self.Tw[i, :] /= np.sum(self.Tw[i, :])
+            for j in xrange(self.Nw):
+                if self.Tw[i, j] != 0.:
+                    self.Tw[i, j] = math.log(self.Tw[i, j])
+                else:
+                    self.Tw[i, j] = 10.
+
+    def getProb(self, x, mu, sigma, res):
+        return (0.5*(1+math.erf((x-mu+res)/(math.sqrt(2)*sigma))) -
+                0.5*(1+math.erf((x-mu-res)/(math.sqrt(2)*sigma))))
 
     def getBiasTrans(self, init, final):
         """
         """
         delB = final - init
-        prob = self.Tb.cdf(delB+0.00001)-self.Tb.cdf(delB-0.00001)
+        prob = self.getProb(delB, 0, self.sigmaB, 0.00001)
         if prob != 0:
             return math.log(prob)
         else:
@@ -105,19 +107,22 @@ class Viterbi():
         find most likely sequence of states given observations (obs)
         """
 
-        priorState = stats.norm(0, 0.75)
+        prob = self.getProb(self.states[0], 0, 0.75, self.resW)
+        if prob != 0:
+            self.V[0, 0] = math.log(prob)
 
-        self.V[0, 0] = math.log(priorState.cdf(self.states[1])
-                                - priorState.cdf(self.states[0]-self.resW))
-        self.V[0, self.Nw-1] = math.log(priorState.cdf(self.states[-1]+self.resW)
-                                        - priorState.cdf(self.states[-2]))
+        prob = self.getProb(self.states[self.Nw-1], 0, 0.75, self.resW)
+        if prob != 0:
+            self.V[0, self.Nw-1] = math.log(prob)
 
         self.B[0, 0] = 0
         self.B[0, self.Nw-1] = self.Nw-1
 
         for i in xrange(1, self.Nw-1):
-            self.V[0, i] = math.log(priorState.cdf(self.states[i+1]) -
-                                    priorState.cdf(self.states[i-1]))
+            prob = self.getProb(self.states[i], 0, 0.75, self.resW)
+            if prob != 0:
+                self.V[0, i] = math.log(prob)
+
             for j in xrange(self.Ns):
                 self.B[0, i] = i
 
@@ -127,8 +132,8 @@ class Viterbi():
                 s_max = None
                 # looping over old states
                 for j in xrange(self.Nw):
-                    if self.Tw[j, i] != 0:
-                        p = self.V[t-1, j] + math.log(self.Tw[j, i])
+                    if self.Tw[j, i] != 10.:
+                        p = self.V[t-1, j] + self.Tw[j, i]
                         for sens in xrange(self.Ns):
                             bi = self.obs[sens, t-1] - self.states[j]
                             bf = self.obs[sens, t] - self.states[i]
