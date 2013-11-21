@@ -1,12 +1,24 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 
-def plot(B):
+def plot(V, B, states, omega):
+    N = V.shape[0]
+    Nw = V.shape[1]
 
-    plt.figure(1)
+    Bp = np.empty(N)
 
-    for i in xrange(1, B.shape[0]):
-        for j in xrange(B.shape[1]):
-            plt.plot([i-1, i], [B[i, j], j], 'r')
+    for i in xrange(N):
+        max_val = -1e100000000
+        max_idx = None
+        for j in xrange(Nw):
+            if (V[i, j] < 0 and V[i, j] > max_val):
+                max_val = V[i, j]
+                max_idx = j
+
+        Bp[i] = states[max_idx]
+
+    plt.plot(Bp, 'r')
+    plt.plot(omega[:N], 'g')
 
     plt.show()

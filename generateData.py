@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 
 def generate(num, samples):
     """
-    Generate bias data to be added to actual 'omega'
+    Generate bias and omega
     """
     clamp = lambda n, low, high: max(min(high, n), low)
 
-    sigmaB = [0.0002, 0.0003]
+    sigmaB = [0.00025, 0.00025, 0.00022, 0.00028]
     sigmaW = 0.0085
     #sigmaN = 0.03
 
@@ -18,7 +18,7 @@ def generate(num, samples):
     max_db = 0.001
     min_db = 0.00001
 
-    initB = [0.025, -0.040]
+    initB = [0.025, -0.040, -0.010, 0.045]
 
     bias = np.empty([num, samples])
     for i in range(num):
@@ -50,17 +50,17 @@ def generate(num, samples):
 
 if __name__ == "__main__":
 
-    bias, omega, obs = generate(2, 150000)
+    num = 4
+    bias, omega, obs = generate(4, 150000)
 
-    plt.figure(1)
-    plt.plot(obs[0, :])
+    for i in xrange(num):
+        plt.figure(i+1)
+        plt.plot(obs[i, :])
 
-    plt.figure(2)
-    plt.plot(obs[1, :])
+        plt.figure(num+1)
+        plt.plot(np.cumsum(obs[i, :]))
 
-    plt.figure(3)
-    plt.plot(np.cumsum(obs[0, :]), 'b')
-    plt.plot(np.cumsum(obs[1, :]), 'r')
+    plt.figure(num+1)
     plt.plot(np.cumsum(omega), 'g')
 
     plt.show()

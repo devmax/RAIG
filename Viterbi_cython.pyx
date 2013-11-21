@@ -25,6 +25,7 @@ cpdef double getProb(double x, double mu, double sigma, double res):
     return (0.5*(1+erf((x-mu+res)/(sqrt(2)*sigma))) -
             0.5*(1+erf((x-mu-res)/(sqrt(2)*sigma))))
 
+@cython.boundscheck(False)
 cpdef createMatrices(int Nw, double resW, double sigmaW):
 
     cdef double sqrt_tpi = sqrt(2*math.pi)
@@ -39,7 +40,7 @@ cpdef createMatrices(int Nw, double resW, double sigmaW):
             if Tw[<unsigned int>i, <unsigned int>j] != 0:
                 Tw[<unsigned int>i, <unsigned int>j] = log(Tw[<unsigned int>i, <unsigned int>j])
             else:
-                Tw[<unsigned int>i, <unsigned int>j] = 10.0
+                Tw[<unsigned int>i, <unsigned int>j] = 1.0
 
     return Tw
 
@@ -51,7 +52,7 @@ cpdef double getBiasTrans(double init,double final, double sigmaB):
     if prob != 0:
         return log(prob)
     else:
-        return -100
+        return -9999
 
 @cython.boundscheck(False)
 cpdef findSequence(double resW, double sigmaW, double sigmaB,
@@ -85,20 +86,18 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
         if prob != 0:
             V[<unsigned int>0, <unsigned int>i] = math.log(prob)
 
-        for j in range(Ns):
-            B[<unsigned int>0, <unsigned int>i] = i
+        B[<unsigned int>0, <unsigned int>i] = i
 
     cdef double p
     cdef double p_max
-    cdef int s_max
+    cdef unsigned int s_max
 
     for t in xrange(1, N):  # looping over time
         for i in xrange(Nw):  # looping over possible new states
             p_max = -1e1000
-            s_max = -1
             # looping over old states
             for j in xrange(Nw):
-                if Tw[<unsigned int>j, <unsigned int>i] != 10.:
+                if Tw[<unsigned int>j, <unsigned int>i] <= 0.:
                     p = V[<unsigned int>(t-1), <unsigned int>j] + Tw[<unsigned int>j, <unsigned int>i]
                     for sens in range(Ns):
                         bi = obs[<unsigned int>sens, <unsigned int>(t-1)] - states[<unsigned int>j]
@@ -112,7 +111,14 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
             V[<unsigned int>t, <unsigned int>i] = p_max
             B[<unsigned int>t, <unsigned int>i] = s_max
 
-    cdef int st = np.argmax(V[<unsigned int>(N-1)])
+    cdef double vmax = -1e100000000
+    cdef unsigned int st
+
+    for i in xrange(Nw):
+        if(V[<unsigned int>(N-1), <unsigned int>i] < 0
+           and V[<unsigned int>(N-1), <unsigned int>i] > vmax):
+            vmax = V[<unsigned int>(N-1), <unsigned int>i]
+            st = i
 
     for t in xrange(N-1, -1, -1):
         Bp[<unsigned int>t] = states[<unsigned int>st]

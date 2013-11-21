@@ -67,7 +67,7 @@ class Viterbi():
 
         self.Tw = np.empty([self.Nw, self.Nw])
 
-        self.V = np.ones([self.N, self.Nw])*-1500
+        self.V = np.ones([self.N, self.Nw])*10
         self.B = np.empty([self.N, self.Nw])
 
         self.Bp = np.empty(self.N)
@@ -100,7 +100,7 @@ class Viterbi():
         if prob != 0:
             return math.log(prob)
         else:
-            return -100
+            return -9999
 
     def findSequence(self):
         """
@@ -123,8 +123,7 @@ class Viterbi():
             if prob != 0:
                 self.V[0, i] = math.log(prob)
 
-            for j in xrange(self.Ns):
-                self.B[0, i] = i
+            self.B[0, i] = i
 
         for t in xrange(1, self.N):  # looping over time
             for i in xrange(self.Nw):  # looping over possible new states
@@ -146,7 +145,7 @@ class Viterbi():
                 self.V[t, i] = p_max
                 self.B[t, i] = s_max
 
-        st = np.argmax(self.V[-1, :])
+        st = np.argmax(self.V[-1])
 
         for t in xrange(self.N-1, -1, -1):
             self.Bp[t] = self.states[st]
