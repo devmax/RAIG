@@ -18,7 +18,11 @@ def generate(num, samples):
     max_db = 0.001
     min_db = 0.00001
 
+<<<<<<< HEAD
     initB = [0.025, -0.040, -0.010, 0.045]
+=======
+    initB = [0.025, -0.040, 0.035, -0.015]
+>>>>>>> 810477fefacada131f8977a3fb25a198b6deace5
 
     bias = np.empty([num, samples])
     for i in range(num):
@@ -51,9 +55,15 @@ def generate(num, samples):
 if __name__ == "__main__":
 
     num = 4
+<<<<<<< HEAD
     bias, omega, obs = generate(4, 150000)
 
     for i in xrange(num):
+=======
+    bias, omega, obs = generate(num, 150000)
+
+    for i in range(num):
+>>>>>>> 810477fefacada131f8977a3fb25a198b6deace5
         plt.figure(i+1)
         plt.plot(obs[i, :])
 
