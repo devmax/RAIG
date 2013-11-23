@@ -70,29 +70,18 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
 
     cdef np.ndarray[np.double_t, ndim = 2] Tw = createMatrices(Nw, resW, sigmaW)
 
-    cdef double prob = getProb(states[0], 0, 0.75, resW)
-    if prob != 0:
-        V[<unsigned int>0, <unsigned int>0] = math.log(prob)
-
-    prob = getProb(states[Nw-1], 0, 0.75, resW)
-    if prob != 0:
-        V[<unsigned int>0, <unsigned int>(Nw-1)] = math.log(prob)
-
-    B[<unsigned int>0, <unsigned int>0] = 0
-    B[<unsigned int>0, <unsigned int>(Nw-1)] = Nw-1
-
-    for i in range(1, Nw-1):
-        prob = getProb(states[i], 0, 0.75, resW)
-        if prob != 0:
-            V[<unsigned int>0, <unsigned int>i] = math.log(prob)
-
-        B[<unsigned int>0, <unsigned int>i] = i
+    V[0] = <float>(1.0/<float>Nw)
+    B[0] = np.arange(Nw, dtype=np.int)
+    Bp[0] = 0.
 
     cdef double p
     cdef double p_max
     cdef unsigned int s_max
+    cdef double p_ml
+    cdef unsigned int ml
 
     for t in xrange(1, N):  # looping over time
+        p_ml = -1e1000
         for i in xrange(Nw):  # looping over possible new states
             p_max = -1e1000
             # looping over old states
@@ -111,18 +100,23 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
             V[<unsigned int>t, <unsigned int>i] = p_max
             B[<unsigned int>t, <unsigned int>i] = s_max
 
-    cdef double vmax = -1e100000000
-    cdef unsigned int st
+            if p_max > p_ml:
+                p_ml = p_max
+                ml = i
+        Bp[<unsigned int>t] = states[<unsigned int>ml]
 
-    for i in xrange(Nw):
-        if(V[<unsigned int>(N-1), <unsigned int>i] < 0
-           and V[<unsigned int>(N-1), <unsigned int>i] > vmax):
-            vmax = V[<unsigned int>(N-1), <unsigned int>i]
-            st = i
+    #cdef double vmax = -1e100000000
+    #cdef unsigned int st
 
-    for t in xrange(N-1, -1, -1):
-        Bp[<unsigned int>t] = states[<unsigned int>st]
-        st = B[<unsigned int>t, <unsigned int>st]
+    #for i in xrange(Nw):
+    #    if(V[<unsigned int>(N-1), <unsigned int>i] < 0
+    #       and V[<unsigned int>(N-1), <unsigned int>i] > vmax):
+    #        vmax = V[<unsigned int>(N-1), <unsigned int>i]
+    #        st = i
+
+    #for t in xrange(N-1, -1, -1):
+    #    Bp[<unsigned int>t] = states[<unsigned int>st]
+    #    st = B[<unsigned int>t, <unsigned int>st]
 
     return Bp, V, B
 

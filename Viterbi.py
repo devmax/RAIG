@@ -107,25 +107,13 @@ class Viterbi():
         find most likely sequence of states given observations (obs)
         """
 
-        prob = self.getProb(self.states[0], 0, 0.75, self.resW)
-        if prob != 0:
-            self.V[0, 0] = math.log(prob)
-
-        prob = self.getProb(self.states[self.Nw-1], 0, 0.75, self.resW)
-        if prob != 0:
-            self.V[0, self.Nw-1] = math.log(prob)
-
-        self.B[0, 0] = 0
-        self.B[0, self.Nw-1] = self.Nw-1
-
-        for i in xrange(1, self.Nw-1):
-            prob = self.getProb(self.states[i], 0, 0.75, self.resW)
-            if prob != 0:
-                self.V[0, i] = math.log(prob)
-
-            self.B[0, i] = i
+        self.V[0] = (1./self.Nw)
+        self.B[0] = np.arange(self.Nw)
+        self.Bp[0] = 0.
 
         for t in xrange(1, self.N):  # looping over time
+            p_ml = -1e1000
+            ml = None
             for i in xrange(self.Nw):  # looping over possible new states
                 p_max = -1e1000
                 s_max = None
@@ -145,11 +133,16 @@ class Viterbi():
                 self.V[t, i] = p_max
                 self.B[t, i] = s_max
 
-        st = np.argmax(self.V[-1])
+                if p_max > p_ml:
+                    p_ml = p_max
+                    ml = i
+            self.Bp[t] = self.states[ml]
 
-        for t in xrange(self.N-1, -1, -1):
-            self.Bp[t] = self.states[st]
-            st = self.B[t, st]
+        #st = np.argmax(self.V[-1])
+
+        #for t in xrange(self.N-1, -1, -1):
+        #    self.Bp[t] = self.states[st]
+        #    st = self.B[t, st]
 
     def run(self):
         """
