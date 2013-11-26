@@ -122,8 +122,12 @@ class Viterbi():
                     if self.Tw[j, i] != 10.:
                         p = self.V[t-1, j] + self.Tw[j, i]
                         for sens in xrange(self.Ns):
-                            bi = self.obs[sens, t-1] - self.states[j]
-                            bf = self.obs[sens, t] - self.states[i]
+                            bi = round(round(self.obs[sens,
+                                                      t-1]/self.resW) *
+                                       self.resW, 3) - self.states[j]
+                            bf = round(round(self.obs[sens,
+                                                      t]/self.resW) *
+                                       self.resW, 3) - self.states[j]
                             p += self.getBiasTrans(bi, bf)
 
                         if p > p_max:
