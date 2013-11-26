@@ -106,7 +106,6 @@ class Viterbi():
         """
         find most likely sequence of states given observations (obs)
         """
-
         self.V[0] = (1./self.Nw)
         self.B[0] = np.arange(self.Nw)
         self.Bp[0] = 0.
@@ -122,8 +121,10 @@ class Viterbi():
                     if self.Tw[j, i] != 10.:
                         p = self.V[t-1, j] + self.Tw[j, i]
                         for sens in xrange(self.Ns):
-                            bi = self.obs[sens, t-1] - self.states[j]
-                            bf = self.obs[sens, t] - self.states[i]
+                            bi = round(self.obs[sens, t-1]/self.resW)*self.resW
+                            - self.states[j]
+                            bf = round(self.obs[sens, t]/self.resW)*self.resW
+                            - self.states[i]
                             p += self.getBiasTrans(bi, bf)
 
                         if p > p_max:
