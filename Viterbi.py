@@ -121,10 +121,19 @@ class Viterbi():
                     if self.Tw[j, i] != 10.:
                         p = self.V[t-1, j] + self.Tw[j, i]
                         for sens in xrange(self.Ns):
+<<<<<<< HEAD
                             bi = round(self.obs[sens, t-1]/self.resW)*self.resW
                             - self.states[j]
                             bf = round(self.obs[sens, t]/self.resW)*self.resW
                             - self.states[i]
+=======
+                            bi = round(round(self.obs[sens,
+                                                      t-1]/self.resW) *
+                                       self.resW, 3) - self.states[j]
+                            bf = round(round(self.obs[sens,
+                                                      t]/self.resW) *
+                                       self.resW, 3) - self.states[j]
+>>>>>>> ab532bca7b74d9ae05b7c2f9a06022be72b31e2d
                             p += self.getBiasTrans(bi, bf)
 
                         if p > p_max:
