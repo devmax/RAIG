@@ -123,14 +123,20 @@ class Viterbi():
                         oi = round(self.obs[sens, t-1]*div)
                         of = round(self.obs[sens, t]*div)
 
-                        r = oi % 5
-                        oi += 5-r if r > 2 else -r
+                        if res == 0.005:
+                            r = oi % 5
+                            oi += 5-r if r > 2 else -r
 
-                        r = of % 5
-                        of += 5-r if r > 2 else -r
+                            r = of % 5
+                            of += 5-r if r > 2 else -r
 
-                        bi = (oi/div) - round(self.states[j], 3)
-                        bf = (of/div) - round(self.states[i], 3)
+                            bi = (oi/div) - round(self.states[j], 3)
+                            bf = (of/div) - round(self.states[i], 3)
+
+                        else:
+                            bi = (oi/div) - round(self.states[j], 4)
+                            bf = (of/div) - round(self.states[i], 4)
+
                         p += self.getBiasTrans(bi, bf)
 
                     if p > p_max:
