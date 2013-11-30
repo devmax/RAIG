@@ -104,7 +104,6 @@ class Viterbi():
         """
         find most likely sequence of states given observations (obs)
         """
-
         for i in xrange(self.Nw):
             self.V[0, i] = math.log(self.getProb(self.states[i], 0,
                                                  0.5, self.resW))
@@ -125,7 +124,6 @@ class Viterbi():
                     if self.Tw[abs(j-i)] <= 0.:
                         p = self.V[t-1, j] + self.Tw[abs(j-i)]
                         for sens in xrange(self.Ns):
-
                             oi = round(self.obs[sens, t-1]*div)
                             of = round(self.obs[sens, t]*div)
 
