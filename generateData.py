@@ -31,7 +31,7 @@ def generate(num, samples):
     dw = np.random.normal(0, sigmaW, samples)
 
     w = np.cumsum(dw)
-    idx_t = np.where((-0.01 < w) & (w < 0.01))
+    idx_t = np.where((-0.0025 < w) & (w < 0.0025))
     idx = [idx_t[0][10]]
     cur = 2
 

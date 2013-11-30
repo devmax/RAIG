@@ -14,6 +14,7 @@ cdef extern from "math.h":
     double erf(double x)
     double sqrt(double x)
     double pow(double base, double exponent)
+    double round(double x)
 
 cdef inline double double_max(double a, double b): return a if a>=b else b
 cdef inline double double_min(double a, double b): return a if a<=b else b
@@ -25,6 +26,7 @@ cpdef double getProb(double x, double mu, double sigma, double res):
     return (0.5*(1+erf((x-mu+res)/(sqrt(2)*sigma))) -
             0.5*(1+erf((x-mu-res)/(sqrt(2)*sigma))))
 
+
 @cython.boundscheck(False)
 cpdef createMatrices(int Nw, double resW, double sigmaW):
 
@@ -34,17 +36,20 @@ cpdef createMatrices(int Nw, double resW, double sigmaW):
 
     for i in range(Nw):
         for j in range(Nw):
-            Tw[<unsigned int>i, <unsigned int>j] = getPDF(sqrt_tpi, (j-i)*resW, 0, sigmaW)
-        Tw[<unsigned int>i] /= np.sum(Tw[<unsigned int>i])
+            Tw[<unsigned int>i, <unsigned int>j] = getPDF(sqrt_tpi,
+                                                          (j-i)*resW,
+                                                          0, sigmaW)/100.0
+
         for j in range(Nw):
             if Tw[<unsigned int>i, <unsigned int>j] != 0:
-                Tw[<unsigned int>i, <unsigned int>j] = log(Tw[<unsigned int>i, <unsigned int>j])
+                Tw[<unsigned int>i, <unsigned int>j] =
+                log(Tw[<unsigned int>i, <unsigned int>j])
             else:
                 Tw[<unsigned int>i, <unsigned int>j] = 1.0
 
     return Tw
 
-cpdef double getBiasTrans(double init,double final, double sigmaB):
+cpdef double getBiasTrans(double init, double final, double sigmaB):
 
     cdef double delB = final - init
     cdef double prob = getProb(delB, 0, sigmaB, 0.00001)
@@ -53,6 +58,7 @@ cpdef double getBiasTrans(double init,double final, double sigmaB):
         return log(prob)
     else:
         return -9999
+
 
 @cython.boundscheck(False)
 cpdef findSequence(double resW, double sigmaW, double sigmaB,
@@ -63,14 +69,18 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     cdef int N = obs.shape[1]
     cdef int Ns = obs.shape[0]
 
-    cdef np.ndarray[np.double_t, ndim = 2] V = np.ones([N, Nw])*(-1500.0)
+    cdef np.ndarray[np.double_t, ndim = 2] V = np.ones([N, Nw])*(10.0)
     cdef np.ndarray[np.int_t, ndim = 2] B = np.empty([N, Nw], dtype=np.int)
 
     cdef np.ndarray[np.double_t, ndim = 1] Bp = np.zeros(N, dtype=np.double)
 
     cdef np.ndarray[np.double_t, ndim = 2] Tw = createMatrices(Nw, resW, sigmaW)
 
-    V[0] = <float>(1.0/<float>Nw)
+    cdef sqrt_tpi = sqrt(2*math.pi)
+
+    for i in xrange(Nw):
+        V[0, i] = getProb(states[i], 0, 0.5, resW)
+
     B[0] = np.arange(Nw, dtype=np.int)
     Bp[0] = 0.
 
@@ -80,17 +90,32 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     cdef double p_ml
     cdef unsigned int ml
 
+    cdef double oi
+    cdef double of
+    cdef float r
+    cdef double div = 1000.0
+
     for t in xrange(1, N):  # looping over time
         p_ml = -1e1000
         for i in xrange(Nw):  # looping over possible new states
             p_max = -1e1000
             # looping over old states
             for j in xrange(Nw):
-                if Tw[<unsigned int>j, <unsigned int>i] <= 0.:
-                    p = V[<unsigned int>(t-1), <unsigned int>j] + Tw[<unsigned int>j, <unsigned int>i]
+                if Tw[<unsigned int> j, <unsigned int> i] <= 0.:
+                    p = V[<unsigned int> (t-1), <unsigned int> j] + Tw[<unsigned int> j, <unsigned int> i]
                     for sens in range(Ns):
-                        bi = obs[<unsigned int>sens, <unsigned int>(t-1)] - states[<unsigned int>j]
-                        bf = obs[<unsigned int>sens, <unsigned int>t] - states[<unsigned int>i]
+                        oi = round(obs[< unsigned int > sens, < unsigned
+                                       int > (t-1)] * div)
+                        of = round(obs[<unsigned int> sens, <unsigned
+                                       int> t] * div)
+                        r = oi % 5
+                        oi += 5-r if r > 2 else -r
+
+                        r = of % 5
+                        of += 5-r if r > 2 else -r
+
+                        bi = (oi/div) - states[<unsigned int>j]
+                        bf = (of/div) - states[<unsigned int>i]
                         p += getBiasTrans(bi, bf, sigmaB)
 
                     if p > p_max:
@@ -120,11 +145,13 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
 
     return Bp, V, B
 
+
 def run(obs):
 
+    print "Just checking"
     resW = 0.005
     sigmaW = 0.0085
-    sigmaB = 0.00025
+    sigmaB = 0.0025
 
     Ns = obs.shape[0]
 
@@ -143,9 +170,8 @@ def run(obs):
     lim = double_max((minw*-1), maxw)
 
     states = np.concatenate((np.arange(0, -lim, -resW)[:0:-1],
-                                      np.arange(0, lim, resW)), 1)
+                             np.arange(0, lim, resW)), 1)
 
     Bp, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
 
     return Bp, V, B, states
-

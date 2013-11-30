@@ -65,7 +65,7 @@ class Viterbi():
 
         self.Nw = self.states.shape[0]
 
-        self.Tw = np.empty([self.Nw, self.Nw])
+        self.Tw = np.empty(self.Nw)
 
         self.V = np.ones([self.N, self.Nw])*10
         self.B = np.empty([self.N, self.Nw])
@@ -76,17 +76,15 @@ class Viterbi():
         """
         Create state transition matrices, and observation matrices
         """
+
         prob = stats.norm(0, self.sigmaW)
 
         for i in xrange(self.Nw):
-            for j in xrange(self.Nw):
-                self.Tw[i, j] = prob.pdf((j-i)*self.resW)
-            self.Tw[i, :] /= np.sum(self.Tw[i, :])
-            for j in xrange(self.Nw):
-                if self.Tw[i, j] != 0.:
-                    self.Tw[i, j] = math.log(self.Tw[i, j])
-                else:
-                    self.Tw[i, j] = 10.
+            p = prob.pdf(i*self.resW)/100.0
+            if p != 0:
+                self.Tw[i] = math.log(p)
+            else:
+                self.Tw[i] = 10.
 
     def getProb(self, x, mu, sigma, res):
         return (0.5*(1+math.erf((x-mu+res)/(math.sqrt(2)*sigma))) -
@@ -107,9 +105,14 @@ class Viterbi():
         find most likely sequence of states given observations (obs)
         """
 
-        self.V[0] = (1./self.Nw)
+        for i in xrange(self.Nw):
+            self.V[0, i] = math.log(self.getProb(self.states[i], 0,
+                                                 0.5, self.resW))
+
         self.B[0] = np.arange(self.Nw)
         self.Bp[0] = 0.
+
+        div = 1000.0
 
         for t in xrange(1, self.N):  # looping over time
             p_ml = -1e1000
@@ -119,15 +122,21 @@ class Viterbi():
                 s_max = None
                 # looping over old states
                 for j in xrange(self.Nw):
-                    if self.Tw[j, i] != 10.:
-                        p = self.V[t-1, j] + self.Tw[j, i]
+                    if self.Tw[abs(j-i)] <= 0.:
+                        p = self.V[t-1, j] + self.Tw[abs(j-i)]
                         for sens in xrange(self.Ns):
-                            bi = round(round(self.obs[sens,
-                                                      t-1]/self.resW) *
-                                       self.resW, 3) - self.states[j]
-                            bf = round(round(self.obs[sens,
-                                                      t]/self.resW) *
-                                       self.resW, 3) - self.states[j]
+
+                            oi = round(self.obs[sens, t-1]*div)
+                            of = round(self.obs[sens, t]*div)
+
+                            r = oi % 5
+                            oi += 5-r if r > 2 else -r
+
+                            r = of % 5
+                            of += 5-r if r > 2 else -r
+
+                            bi = (oi/div) - round(self.states[j], 3)
+                            bf = (of/div) - round(self.states[i], 3)
                             p += self.getBiasTrans(bi, bf)
 
                         if p > p_max:
