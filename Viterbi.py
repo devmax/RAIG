@@ -31,17 +31,21 @@ class Viterbi():
 
     lim = None
 
-    def __init__(self, obs, resW=0.0001, resB=0.001,
-                 sigmaW=0.0085, sigmaB=0.00025):
+    steps = None
+
+    def __init__(self, obs, resW=0.005, resB=0.001,
+                 sigmaW=0.0085, sigmaB=0.00015, steps=1):
         """
         """
+        self.steps = steps
+
         self.obs = obs
 
         self.resB = resB
         self.resW = resW
 
-        self.sigmaW = sigmaW
-        self.sigmaB = sigmaB
+        self.sigmaW = sigmaW*steps
+        self.sigmaB = sigmaB*steps
 
         self.Tb = stats.norm(0, sigmaB)
 
@@ -67,8 +71,8 @@ class Viterbi():
 
         self.states = np.concatenate((np.arange(0, -lim-self.resW,
                                                 -self.resW)[:0:-1],
-                                      np.arange(0, lim+self.resW,
-                                                self.resW)), 1)
+                                      np.arange(0, lim+self.resW, self.resW)),
+                                     1)
 
         self.Nw = self.states.shape[0]
 
@@ -117,10 +121,10 @@ class Viterbi():
             s_max = None
             # looping over old states
             for j in xrange(ol_idx, oh_idx, (int)(res/self.resW)):
-                if self.Tw[abs(j-i)] <= 0 and self.V[t-1, j] <= 0.:
-                    p = self.V[t-1, j] + self.Tw[abs(j-i)]
+                if self.Tw[abs(j-i)] <= 0 and self.V[t-self.steps, j] <= 0.:
+                    p = self.V[t-self.steps, j] + self.Tw[abs(j-i)]
                     for sens in xrange(self.Ns):
-                        oi = round(self.obs[sens, t-1]*div)
+                        oi = round(self.obs[sens, t-self.steps]*div)
                         of = round(self.obs[sens, t]*div)
 
                         if res == 0.005:
@@ -163,28 +167,33 @@ class Viterbi():
         self.B[0] = np.arange(self.Nw, dtype=np.int32)
         self.Bp[0] = 0.
 
-        for t in xrange(1, self.N):  # looping over time
+        for t in xrange(self.steps, self.N, self.steps):  # looping over time
             div = 1000.0
             ml = self.iterate(0.005, div, t, 0, self.Nw,
                               0, self.Nw)
 
-            src = self.B[t, ml]
-            ol_idx = max(src - (int)(0.005/self.resW) + 1, 0)
-            oh_idx = min(src + (int)(0.005/self.resW), self.Nw)
+            self.Bp[t] = self.states[ml]
 
-            if self.V[t, ol_idx] == 10.:
-                ol_idx = src
-            if self.V[t, oh_idx-1] == 10.:
-                oh_idx = src+1
+            refine = False
 
-            nl_idx = max(ml - (int)(0.005/self.resW) + 1, 0)
-            nh_idx = min(ml + (int)(0.005/self.resW), self.Nw)
+            if refine:
+                src = self.B[t, ml]
+                ol_idx = max(src - (int)(0.005/self.resW)*2, 0)
+                oh_idx = min(src + (int)(0.005/self.resW)*2, self.Nw)
 
-            div = 10000.
-            ml_fine = self.iterate(0.0001, div, t, ol_idx, oh_idx,
-                                   nl_idx, nh_idx)
+                if self.V[t, ol_idx] == 10.:
+                    ol_idx = src
+                if self.V[t, oh_idx-1] == 10.:
+                    oh_idx = src+1
 
-            self.Bp[t] = self.states[ml_fine]
+                nl_idx = max(ml - (int)(0.005/self.resW)*2, 0)
+                nh_idx = min(ml + (int)(0.005/self.resW)*2, self.Nw)
+
+                div = 10000.
+                ml_fine = self.iterate(0.0001, div, t, ol_idx, oh_idx,
+                                       nl_idx, nh_idx)
+
+                self.Bp[t] = self.states[ml_fine]
 
         #st = np.argmax(self.V[-1])
 

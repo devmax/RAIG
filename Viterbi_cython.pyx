@@ -42,8 +42,7 @@ cpdef createMatrices(int Nw, double resW, double sigmaW):
 
         for j in range(Nw):
             if Tw[<unsigned int>i, <unsigned int>j] != 0:
-                Tw[<unsigned int>i, <unsigned int>j] =
-                log(Tw[<unsigned int>i, <unsigned int>j])
+                Tw[<unsigned int>i, <unsigned int>j] = log(Tw[<unsigned int>i, <unsigned int>j])
             else:
                 Tw[<unsigned int>i, <unsigned int>j] = 1.0
 
@@ -148,10 +147,10 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
 
 def run(obs):
 
-    print "Just checking"
+    print "foobar"
     resW = 0.005
     sigmaW = 0.0085
-    sigmaB = 0.0025
+    sigmaB = 0.0015
 
     Ns = obs.shape[0]
 
