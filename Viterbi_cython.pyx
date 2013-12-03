@@ -145,10 +145,13 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     return Bp, V, B
 
 
-def run(obs):
+def run(obs, res):
 
     print "foobar"
-    resW = 0.005
+
+    steps = 15
+
+    resW = res
     sigmaW = 0.0085
     sigmaB = 0.0015
 

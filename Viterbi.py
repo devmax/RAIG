@@ -33,10 +33,11 @@ class Viterbi():
 
     steps = None
 
-    def __init__(self, obs, resW=0.005, resB=0.001,
+    def __init__(self, obs, resW=0.05, resB=0.001,
                  sigmaW=0.0085, sigmaB=0.00015, steps=1):
         """
         """
+        print "foobar"
         self.steps = steps
 
         self.obs = obs
@@ -44,8 +45,8 @@ class Viterbi():
         self.resB = resB
         self.resW = resW
 
-        self.sigmaW = sigmaW*steps
-        self.sigmaB = sigmaB*steps
+        self.sigmaW = sigmaW*15
+        self.sigmaB = sigmaB*15
 
         self.Tb = stats.norm(0, sigmaB)
 
@@ -169,7 +170,7 @@ class Viterbi():
 
         for t in xrange(self.steps, self.N, self.steps):  # looping over time
             div = 1000.0
-            ml = self.iterate(0.005, div, t, 0, self.Nw,
+            ml = self.iterate(self.resW, div, t, 0, self.Nw,
                               0, self.Nw)
 
             self.Bp[t] = self.states[ml]
