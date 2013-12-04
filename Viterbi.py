@@ -33,11 +33,11 @@ class Viterbi():
 
     steps = None
 
-    def __init__(self, obs, resW=0.05, resB=0.001,
+    def __init__(self, obs, resW=0.0001, resB=0.001,
                  sigmaW=0.0085, sigmaB=0.00015, steps=1):
         """
         """
-        print "foobar"
+        print "FooBar"
         self.steps = steps
 
         self.obs = obs
@@ -45,8 +45,8 @@ class Viterbi():
         self.resB = resB
         self.resW = resW
 
-        self.sigmaW = sigmaW*15
-        self.sigmaB = sigmaB*15
+        self.sigmaW = sigmaW
+        self.sigmaB = sigmaB
 
         self.Tb = stats.norm(0, sigmaB)
 
@@ -80,9 +80,9 @@ class Viterbi():
         self.Tw = np.empty(self.Nw)
 
         self.V = np.ones([self.N, self.Nw])*10.
-        self.B = np.empty([self.N, self.Nw], dtype=np.int32)
+        self.B = np.ones([self.N, self.Nw], dtype=np.int32)*-1
 
-        self.Bp = np.empty(self.N)
+        self.Bp = np.zeros(self.N)
 
     def createMatrices(self):
         """
@@ -112,10 +112,10 @@ class Viterbi():
         else:
             return -9999
 
-    def iterate(self, res, div, t, ol_idx, oh_idx, nl_idx, nh_idx):
+    def iterate(self, res, div, t, ol_idx, oh_idx, nl_idx, nh_idx, pml, mlidx):
 
-        p_ml = -1e1000
-        ml = None
+        p_ml = pml
+        ml = mlidx
         # looping over possible new states
         for i in xrange(nl_idx, nh_idx, (int)(res/self.resW)):
             p_max = -1e1000
@@ -162,37 +162,40 @@ class Viterbi():
         find most likely sequence of states given observations (obs)
         """
         for i in xrange(self.Nw):
-            self.V[0, i] = math.log(self.getProb(self.states[i], 0,
-                                                 0.5, self.resW))
+            p = self.getProb(self.states[i], 0, 0.5, self.resW)
+            if p != 0:
+                self.V[0, i] = math.log(p)
+            else:
+                self.V[0, i] = -1e1000
 
         self.B[0] = np.arange(self.Nw, dtype=np.int32)
         self.Bp[0] = 0.
 
         for t in xrange(self.steps, self.N, self.steps):  # looping over time
             div = 1000.0
-            ml = self.iterate(self.resW, div, t, 0, self.Nw,
-                              0, self.Nw)
+            ml = self.iterate(0.005, div, t, 0, self.Nw,
+                              0, self.Nw, -1e1000, None)
 
             self.Bp[t] = self.states[ml]
 
-            refine = False
+            refine = True
 
             if refine:
                 src = self.B[t, ml]
-                ol_idx = max(src - (int)(0.005/self.resW)*2, 0)
-                oh_idx = min(src + (int)(0.005/self.resW)*2, self.Nw)
+                ol_idx = max(src, 0)
+                oh_idx = min(src+1, self.Nw)
 
                 if self.V[t, ol_idx] == 10.:
                     ol_idx = src
                 if self.V[t, oh_idx-1] == 10.:
                     oh_idx = src+1
 
-                nl_idx = max(ml - (int)(0.005/self.resW)*2, 0)
-                nh_idx = min(ml + (int)(0.005/self.resW)*2, self.Nw)
+                nl_idx = max(ml - (int)(0.005/self.resW)+1, 0)
+                nh_idx = min(ml + (int)(0.005/self.resW), self.Nw)
 
                 div = 10000.
                 ml_fine = self.iterate(0.0001, div, t, ol_idx, oh_idx,
-                                       nl_idx, nh_idx)
+                                       nl_idx, nh_idx, self.V[t, ml], ml)
 
                 self.Bp[t] = self.states[ml_fine]
 
