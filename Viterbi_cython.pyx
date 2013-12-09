@@ -15,6 +15,7 @@ cdef extern from "math.h":
     double sqrt(double x)
     double pow(double base, double exponent)
     double round(double x)
+    int abs(int n)
 
 cdef inline double double_max(double a, double b): return a if a>=b else b
 cdef inline double double_min(double a, double b): return a if a<=b else b
@@ -34,17 +35,19 @@ cpdef createMatrices(int Nw, double resW, double sigmaW):
 
     cdef np.ndarray[np.double_t, ndim=2] Tw = np.empty([Nw, Nw])
 
-    for i in range(Nw):
-        for j in range(Nw):
+    for j in xrange(Nw):
+        for i in xrange(Nw):
+            # probability that state j came from state i
             Tw[<unsigned int>i, <unsigned int>j] = getPDF(sqrt_tpi,
-                                                          (j-i)*resW,
-                                                          0, sigmaW)/100.0
-
-        for j in range(Nw):
-            if Tw[<unsigned int>i, <unsigned int>j] != 0:
-                Tw[<unsigned int>i, <unsigned int>j] = log(Tw[<unsigned int>i, <unsigned int>j])
+                                                          abs(j-i)*resW,
+                                                          0, sigmaW)
+        Tw[:, j] /= sum(Tw[:, j])
+        for i in range(Nw):
+            p = Tw[<unsigned int>i, <unsigned int>j]
+            if p != 0:
+                Tw[<unsigned int>i, <unsigned int>j] = log(p)
             else:
-                Tw[<unsigned int>i, <unsigned int>j] = 1.0
+                Tw[<unsigned int>i, <unsigned int>j] = 10.0
 
     return Tw
 
@@ -103,18 +106,22 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                 if Tw[<unsigned int> j, <unsigned int> i] <= 0.:
                     p = V[<unsigned int> (t-1), <unsigned int> j] + Tw[<unsigned int> j, <unsigned int> i]
                     for sens in range(Ns):
-                        oi = round(obs[< unsigned int > sens, < unsigned
-                                       int > (t-1)] * div)
-                        of = round(obs[<unsigned int> sens, <unsigned
-                                       int> t] * div)
-                        r = oi % 5
-                        oi += 5-r if r > 2 else -r
+                        #oi = round(obs[< unsigned int > sens, < unsigned
+                        #int > (t-1)] * div)
+                        #of = round(obs[<unsigned int> sens, <unsigned
+                        #int> t] * div)
+                        #r = oi % 5
+                        #oi += 5-r if r > 2 else -r
 
-                        r = of % 5
-                        of += 5-r if r > 2 else -r
+                        #r = of % 5
+                        #of += 5-r if r > 2 else -r
 
-                        bi = (oi/div) - states[<unsigned int>j]
-                        bf = (of/div) - states[<unsigned int>i]
+                        #bi = (oi/div) - states[<unsigned int>j]
+                        #bf = (of/div) - states[<unsigned int>i]
+                        bi = obs[< unsigned int > sens, < unsigned int
+                                 > (t-1)] - states[<unsigned int> j]
+                        bf = obs[< unsigned int > sens, < unsigned int
+                                 > t] - states[<unsigned int> i]
                         p += getBiasTrans(bi, bf, sigmaB)
 
                     if p > p_max:
@@ -129,51 +136,69 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                 ml = i
         Bp[<unsigned int>t] = states[<unsigned int>ml]
 
-    #cdef double vmax = -1e100000000
-    #cdef unsigned int st
+    cdef np.ndarray[np.double_t, ndim = 1] Bpf = np.zeros(N, dtype=np.double)
 
-    #for i in xrange(Nw):
-    #    if(V[<unsigned int>(N-1), <unsigned int>i] < 0
-    #       and V[<unsigned int>(N-1), <unsigned int>i] > vmax):
-    #        vmax = V[<unsigned int>(N-1), <unsigned int>i]
-    #        st = i
+    cdef double vmax = -1e100000000
+    cdef unsigned int st
 
-    #for t in xrange(N-1, -1, -1):
-    #    Bp[<unsigned int>t] = states[<unsigned int>st]
-    #    st = B[<unsigned int>t, <unsigned int>st]
+    for i in xrange(Nw):
+        if(V[<unsigned int>(N-1), <unsigned int>i] < 0
+           and V[<unsigned int>(N-1), <unsigned int>i] > vmax):
+            vmax = V[<unsigned int>(N-1), <unsigned int>i]
+            st = i
 
-    return Bp, V, B
+    for t in xrange(N-1, -1, -1):
+        Bpf[<unsigned int>t] = states[<unsigned int>st]
+        st = B[<unsigned int>t, <unsigned int>st]
+
+    return Bp, Bpf, V, B
 
 
-def run(obs, res):
+def run(obs, omega):
 
-    print "foobar"
+    N = obs.shape[1]
+    omega = omega[:N]
 
-    steps = 15
+    count = 0
+    res = []
+    numStates = []
+    error = []
+    estimates = []
 
-    resW = res
-    sigmaW = 0.0085
-    sigmaB = 0.0015
+    while res > 0.:
+        resW = np.round(pow(2.0, -count), 5)
+        res.append(resW)
 
-    Ns = obs.shape[0]
+        print "Working on resolution of ", resW
+        sigmaW = 0.0085
+        sigmaB = 0.0015
 
-    minw = 1e10
-    maxw = -1e10
+        Ns = obs.shape[0]
 
-    for i in xrange(Ns):
-        val = np.amin(obs[i, :])
-        if val < minw:
-            minw = val
+        minw = 1e10
+        maxw = -1e10
 
-        val = np.amax(obs[i, :])
-        if val > maxw:
-            maxw = val
+        for i in xrange(Ns):
+            val = np.amin(obs[i, :])
+            if val < minw:
+                minw = val
 
-    lim = double_max((minw*-1), maxw)
+            val = np.amax(obs[i, :])
+            if val > maxw:
+                maxw = val
 
-    states = np.concatenate((np.arange(0, -lim, -resW)[:0:-1],
-                             np.arange(0, lim, resW)), 1)
+        lim = double_max((minw*-1), maxw)
 
-    Bp, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
+        states = np.concatenate((np.arange(0, -lim, -resW)[:0:-1],
+                                 np.arange(0, lim, resW)), 1)
 
-    return Bp, V, B, states
+        Bp, Bpf, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
+
+        err = math.sqrt(np.sum(np.power(omega - Bpf, 2))/N)
+
+        numStates.append(states.shape[0])
+        error.append(err)
+        estimates.append(Bpf)
+        count += 1
+
+    return numStates, res, error, estimates

@@ -2,6 +2,7 @@ from statsmodels.robust import stand_mad
 import statsmodels.api as sm
 import pywt
 import numpy as np
+from scipy.stats import kde
 import matplotlib.pyplot as plt
 import math
 

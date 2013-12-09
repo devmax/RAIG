@@ -33,11 +33,10 @@ class Viterbi():
 
     steps = None
 
-    def __init__(self, obs, resW=0.0001, resB=0.001,
+    def __init__(self, obs, resW=0.005, resB=0.001,
                  sigmaW=0.0085, sigmaB=0.00015, steps=1):
         """
         """
-        print "FooBar"
         self.steps = steps
 
         self.obs = obs
@@ -77,7 +76,7 @@ class Viterbi():
 
         self.Nw = self.states.shape[0]
 
-        self.Tw = np.empty(self.Nw)
+        self.Tw = np.empty([self.Nw, self.Nw])
 
         self.V = np.ones([self.N, self.Nw])*10.
         self.B = np.ones([self.N, self.Nw], dtype=np.int32)*-1
@@ -91,12 +90,24 @@ class Viterbi():
 
         prob = stats.norm(0, self.sigmaW)
 
-        for i in xrange(self.Nw):
-            p = prob.pdf(i*self.resW)/100.0
-            if p != 0:
-                self.Tw[i] = math.log(p)
-            else:
-                self.Tw[i] = 10.
+        for j in xrange(self.Nw):
+            for i in xrange(self.Nw):
+                # probability that state j came from state i
+                self.Tw[i, j] = prob.pdf(abs(j-i)*self.resW)
+
+            self.Tw[:, j] /= sum(self.Tw[:, j])
+
+            for i in xrange(self.Nw):
+                p = self.Tw[i, j]
+                if p != 0:
+                    self.Tw[i, j] = math.log(p)
+                else:
+                    self.Tw[i, j] = 10.
+
+            #if p != 0:
+            #    self.Tw[i] = math.log(p)
+            #else:
+            #    self.Tw[i] = 10.
 
     def getProb(self, x, mu, sigma, res):
         return (0.5*(1+math.erf((x-mu+res)/(math.sqrt(2)*sigma))) -
@@ -112,18 +123,18 @@ class Viterbi():
         else:
             return -9999
 
-    def iterate(self, res, div, t, ol_idx, oh_idx, nl_idx, nh_idx, pml, mlidx):
+    def iterate(self, res, div, t, ol_idx, oh_idx, nl_idx, nh_idx):
 
-        p_ml = pml
-        ml = mlidx
+        p_ml = -1e1000
+        ml = None
         # looping over possible new states
         for i in xrange(nl_idx, nh_idx, (int)(res/self.resW)):
             p_max = -1e1000
             s_max = None
             # looping over old states
             for j in xrange(ol_idx, oh_idx, (int)(res/self.resW)):
-                if self.Tw[abs(j-i)] <= 0 and self.V[t-self.steps, j] <= 0.:
-                    p = self.V[t-self.steps, j] + self.Tw[abs(j-i)]
+                if self.Tw[j, i] <= 0 and self.V[t-self.steps, j] <= 0.:
+                    p = self.V[t-self.steps, j] + self.Tw[j, i]
                     for sens in xrange(self.Ns):
                         oi = round(self.obs[sens, t-self.steps]*div)
                         of = round(self.obs[sens, t]*div)
@@ -137,6 +148,8 @@ class Viterbi():
 
                             bi = (oi/div) - round(self.states[j], 3)
                             bf = (of/div) - round(self.states[i], 3)
+                            bi = self.obs[sens, t-self.steps] - self.states[j]
+                            bf = self.obs[sens, t] - self.states[i]
 
                         else:
                             bi = (oi/div) - round(self.states[j], 4)
@@ -162,7 +175,7 @@ class Viterbi():
         find most likely sequence of states given observations (obs)
         """
         for i in xrange(self.Nw):
-            p = self.getProb(self.states[i], 0, 0.5, self.resW)
+            p = self.getProb(self.states[i], 0.08702488, 0.05, self.resW)
             if p != 0:
                 self.V[0, i] = math.log(p)
             else:
@@ -173,12 +186,11 @@ class Viterbi():
 
         for t in xrange(self.steps, self.N, self.steps):  # looping over time
             div = 1000.0
-            ml = self.iterate(0.005, div, t, 0, self.Nw,
-                              0, self.Nw, -1e1000, None)
+            ml = self.iterate(0.005, div, t, 0, self.Nw, 0, self.Nw)
 
             self.Bp[t] = self.states[ml]
 
-            refine = True
+            refine = False
 
             if refine:
                 src = self.B[t, ml]
@@ -205,7 +217,7 @@ class Viterbi():
         #    self.Bp[t] = self.states[st]
         #    st = self.B[t, st]
 
-    def run(self):
+    def createRun(self, omega):
         """
         Run the viterbi algorithm, and plot data against GT
         """
@@ -213,6 +225,13 @@ class Viterbi():
         self.findSequence()
 
         plt.plot(self.Bp, 'r')
-        plt.plot(self.omega, 'g')
-# if __name__ == "__main__":
-# bias, omega, obs = generateData.generate(2, 150000)
+        plt.plot(omega[:self.Bp.shape[0]], 'g')
+
+    def run(self, omega):
+
+        self.findSequence()
+
+        plt.plot(self.Bp, 'r')
+        plt.plot(omega[:self.Bp.shape[0]], 'g')
+
+        plt.show()
