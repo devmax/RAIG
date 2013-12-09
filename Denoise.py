@@ -1,7 +1,9 @@
 from statsmodels.robust import stand_mad
+import statsmodels.api as sm
 import pywt
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 
 def coef_pyramid_plot(coefs, first=0, scale='uniform', ax=None):
@@ -81,3 +83,47 @@ def visualize(data, wavelet, sigma=None):
     plt.show()
 
     return rec
+
+
+def pdf(data, scale):
+
+    points = list()
+    pdf = list()
+    dens = list()
+
+    for i in xrange(data.shape[0]):
+        dens.append(sm.nonparametric.KDEMultivariate(data[i].T,
+                                                     var_type='c',
+                                                     bw='cv_ml'))
+        points.append(np.linspace(data[i].min(), data[i].max(), 1000))
+        pdf.append(dens[i].pdf(points[i]))
+        plt.subplot(2, 2, i+1)
+        plt.plot(points[i], pdf[i])
+
+    plt.show()
+
+    jdens = sm.nonparametric.KDEMultivariate(data=np.delete(data, [1, 2], 0).T,
+                                             var_type='cc',
+                                             bw='cv_ml')
+
+    mi = []
+
+    for i in xrange(0, data.shape[1], scale):
+        cur_mi = 0
+        sample = data[:, i:min(i+scale, data.shape[1])]
+        sample = np.delete(sample, [1, 2], 0)
+        min_val = np.min(sample)
+        max_val = np.max(sample)
+
+        points = np.linspace(min_val, max_val, 1000)
+        pt = np.zeros((1, 2))
+        for x in points:
+            for y in points:
+                pt[0][0] = x
+                pt[0][1] = y
+                jp = jdens.pdf(pt)
+                cur_mi += jp*math.log(jp/(dens[0].pdf(x)*dens[2].pdf(y)))
+
+        mi.append(cur_mi)
+
+    plt.plot(mi)

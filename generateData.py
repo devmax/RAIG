@@ -32,9 +32,51 @@ def generate(num, samples):
     while generated < samples:
 
             omega[generated] = omega[generated-1] + dw[generated-1]
-            bias[:, generated] = bias[:, generated-1] + dbias[:, generated-1]
+            bias[:, generated] = bias[:, generated-1] + dbias[:,
+                                                              generated-1]
             obs[:, generated] = bias[:, generated] + omega[generated]
             generated += 1
+
+    return bias, omega, obs  # , np.random.normal(0, sigmaN, samples)
+
+
+def sanityCheck(num, samples):
+    """
+    Generate bias and omega, with dw being quantized by to factors of
+    0.005
+
+    """
+    sigmaB = np.random.normal(0.00015, 0.000015, num)
+    sigmaW = 0.0085
+
+    initB = np.random.normal(0.00025, 0.25, num)
+
+    bias = np.zeros([num, samples])
+    bias[:, 0] = initB.T
+    dbias = np.zeros([num, samples])
+
+    omega = np.zeros(samples)
+    omega[0] = 0
+
+    obs = np.empty([num, samples])
+
+    for i in xrange(num):
+        dbias[i] = np.random.normal(0, sigmaB[i], samples)
+
+    obs[:, 0] = bias[:, 0] + omega[0]
+    generated = 1
+
+    dw = np.random.normal(0, sigmaW, samples)
+
+    while generated < samples:
+        delta = round(dw[generated-1]*1000.)
+        r = delta % 5
+        delta += 5-r if r > 2 else -r
+
+        omega[generated] = omega[generated-1] + delta/1000.
+        bias[:, generated] = bias[:, generated-1] + dbias[:, generated-1]
+        obs[:, generated] = bias[:, generated] + omega[generated]
+        generated += 1
 
     return bias, omega, obs  # , np.random.normal(0, sigmaN, samples)
 
