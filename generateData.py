@@ -28,7 +28,8 @@ def generateVariant(num, samples, lim):
 
     while generated < samples:
 
-        sig = (1 - (omega[generated-1]/lim))*sigmaW
+        #sig = (1 - (omega[generated-1]/lim))*sigmaW
+        sig = sigmaW
         # mu = -omega[generated-1]
         dw = np.random.normal(0, sig, 1)
         omega[generated] = omega[generated-1] + dw
@@ -122,19 +123,25 @@ if __name__ == "__main__":
 
     num = 4
 
-    bias, omega, obs = generateVariant(num, 150000, 1.8)
+    bias, omega, obs = generateVariant(num, 500000, 1.8)
+    #bias, omega, obs = sanityCheck(num, 150000)
+    #bias, omega, obs = generate(num, 150000)
 
-    for i in xrange(num):
-        plt.figure(i+1)
-        plt.plot(obs[i, :])
+    plt.figure()
+    plt.plot(obs.T)
+    plt.title('Observations')
+    plt.xlabel('Time')
+    plt.ylabel('Observations')
 
-        plt.figure(num+1)
-        plt.plot(np.cumsum(obs[i, :]))
-
-    plt.figure(num+1)
+    plt.figure()
     plt.plot(np.cumsum(omega), 'g')
+    plt.plot(np.cumsum(obs, axis=1).T)
+    plt.ylabel('Angle')
+    plt.title('Integrated angular rate')
 
-    plt.figure(10)
-    plt.plot(omega, 'r')
+    plt.figure()
+    plt.plot(omega, 'g')
+    plt.ylabel('True omega')
+    plt.title('Ground truth')
 
     plt.show()

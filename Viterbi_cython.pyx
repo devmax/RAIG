@@ -17,8 +17,8 @@ cdef extern from "math.h":
     double round(double x)
     int abs(int n)
 
-cdef inline double double_max(double a, double b): return a if a>=b else b
-cdef inline double double_min(double a, double b): return a if a<=b else b
+cdef inline double double_max(double a, double b): return a if a >= b else b
+cdef inline double double_min(double a, double b): return a if a <= b else b
 
 cpdef double getPDF(double sqrt_tpi, double x, double mu, double sigma):
     return (1/(sqrt_tpi*sigma))*exp((-0.5)*pow(((x-mu)/sigma), 2))
@@ -41,7 +41,7 @@ cpdef createMatrices(int Nw, double resW, double sigmaW):
             Tw[<unsigned int>i, <unsigned int>j] = getPDF(sqrt_tpi,
                                                           abs(j-i)*resW,
                                                           0, sigmaW)
-        Tw[:, j] /= sum(Tw[:, j])
+        Tw[:, j] /= 100. # sum(Tw[:, j])
         for i in range(Nw):
             p = Tw[<unsigned int>i, <unsigned int>j]
             if p != 0:
@@ -103,8 +103,9 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
             p_max = -1e1000
             # looping over old states
             for j in xrange(Nw):
-                if Tw[<unsigned int> j, <unsigned int> i] <= 0.:
-                    p = V[<unsigned int> (t-1), <unsigned int> j] + Tw[<unsigned int> j, <unsigned int> i]
+                if Tw[< unsigned int > j, < unsigned int > i] <= 0.:
+                    p = V[< unsigned int > (t-1), < unsigned int > j]\
+                    + Tw[< unsigned int > j, < unsigned int > i]
                     for sens in range(Ns):
                         #oi = round(obs[< unsigned int > sens, < unsigned
                         #int > (t-1)] * div)
@@ -119,22 +120,22 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                         #bi = (oi/div) - states[<unsigned int>j]
                         #bf = (of/div) - states[<unsigned int>i]
                         bi = obs[< unsigned int > sens, < unsigned int
-                                 > (t-1)] - states[<unsigned int> j]
+                                 > (t-1)] - states[< unsigned int > j]
                         bf = obs[< unsigned int > sens, < unsigned int
-                                 > t] - states[<unsigned int> i]
+                                 > t] - states[< unsigned int > i]
                         p += getBiasTrans(bi, bf, sigmaB)
 
                     if p > p_max:
                         p_max = p
                         s_max = j
 
-            V[<unsigned int>t, <unsigned int>i] = p_max
-            B[<unsigned int>t, <unsigned int>i] = s_max
+            V[< unsigned int > t, < unsigned int > i] = p_max
+            B[< unsigned int > t, < unsigned int > i] = s_max
 
             if p_max > p_ml:
                 p_ml = p_max
                 ml = i
-        Bp[<unsigned int>t] = states[<unsigned int>ml]
+                Bp[< unsigned int > t] = states[< unsigned int > ml]
 
     cdef np.ndarray[np.double_t, ndim = 1] Bpf = np.zeros(N, dtype=np.double)
 
@@ -142,16 +143,55 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     cdef unsigned int st
 
     for i in xrange(Nw):
-        if(V[<unsigned int>(N-1), <unsigned int>i] < 0
-           and V[<unsigned int>(N-1), <unsigned int>i] > vmax):
-            vmax = V[<unsigned int>(N-1), <unsigned int>i]
+        if(V[< unsigned int > (N-1), < unsigned int > i] < 0
+           and V[< unsigned int > (N-1), < unsigned int > i] > vmax):
+            vmax = V[< unsigned int > (N-1), < unsigned int > i]
             st = i
 
     for t in xrange(N-1, -1, -1):
-        Bpf[<unsigned int>t] = states[<unsigned int>st]
-        st = B[<unsigned int>t, <unsigned int>st]
+        Bpf[< unsigned int > t] = states[< unsigned int > st]
+        st = B[< unsigned int > t, < unsigned int > st]
 
     return Bp, Bpf, V, B
+
+
+def estimate(obs, omega):
+
+    print "foobar"
+    N = obs.shape[1]
+    omega = omega[:N]
+
+    resW = 0.005
+
+    sigmaW = 0.0085
+    sigmaB = 0.0015
+
+    Ns = obs.shape[0]
+
+    minw = 1e10
+    maxw = -1e10
+
+    for i in xrange(Ns):
+        val = np.amin(obs[i, :])
+        if val < minw:
+            minw = val
+
+        val = np.amax(obs[i, :])
+        if val > maxw:
+            maxw = val
+
+    lim = double_max((minw*-1), maxw)
+
+    states = np.concatenate((np.arange(0, -lim, -resW)[:0:-1],
+                             np.arange(0, lim, resW)), 1)
+
+    Bp, Bpf, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
+
+    plt.plot(Bpf, 'r')
+    plt.plot(omega, 'g')
+    plt.show()
+
+    return Bp, Bpf, V, B, states
 
 
 def run(obs, omega):
@@ -164,8 +204,9 @@ def run(obs, omega):
     numStates = []
     error = []
     estimates = []
+    resW = 1.
 
-    while res > 0.:
+    while resW > 0.:
         resW = np.round(pow(2.0, -count), 5)
         res.append(resW)
 
@@ -198,7 +239,7 @@ def run(obs, omega):
 
         numStates.append(states.shape[0])
         error.append(err)
-        estimates.append(Bpf)
+        # estimates.append(Bpf)
         count += 1
 
     return numStates, res, error, estimates
