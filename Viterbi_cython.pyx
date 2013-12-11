@@ -187,12 +187,27 @@ def estimate(obs, omega):
 
     Bp, Bpf, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
 
-    plt.plot(Bpf, 'r')
-    plt.plot(omega, 'g')
+    err = []
+    for i in xrange(N):
+        st = np.argmax(V[i])
+        err.append((states[st]-omega[i]))
+
+    plt.subplot(211)
+
+    plt.plot(Bpf, color='r', label="Estimated angular rate")
+    plt.plot(omega, color='g', label="True angular rate")
+    plt.legend()
+    plt.xlabel('Time')
+    plt.ylabel('Angular Rate')
+
+    plt.subplot(212)
+    plt.plot(err, label="Error in angular rate estimation")
+    plt.xlabel('Time')
+    plt.ylabel('Error')
+
     plt.show()
 
     return Bp, Bpf, V, B, states
-
 
 def run(obs, omega):
 
