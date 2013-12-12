@@ -192,22 +192,27 @@ def estimate(obs, omega):
         st = np.argmax(V[i])
         err.append((states[st]-omega[i]))
 
+    err = np.array(err)
+
     plt.subplot(211)
 
     plt.plot(Bpf, color='r', label="Estimated angular rate")
     plt.plot(omega, color='g', label="True angular rate")
-    plt.legend()
+    plt.legend(loc=2)
     plt.xlabel('Time')
     plt.ylabel('Angular Rate')
 
     plt.subplot(212)
     plt.plot(err, label="Error in angular rate estimation")
+    plt.plot(np.cumsum(err), label="Cumulative error in rate")
+    plt.legend()
     plt.xlabel('Time')
     plt.ylabel('Error')
 
     plt.show()
 
-    return Bp, Bpf, V, B, states
+    return Bp, Bpf, V, B, states, err
+
 
 def run(obs, omega):
 
@@ -221,7 +226,7 @@ def run(obs, omega):
     estimates = []
     resW = 1.
 
-    while resW > 0.:
+    while resW >= 0.00006:
         resW = np.round(pow(2.0, -count), 5)
         res.append(resW)
 

@@ -9,7 +9,7 @@ def generateVariant(num, samples, lim):
     sigmaB = np.random.normal(0.00015, 0.000015, num)
     sigmaW = 0.0085
 
-    initB = np.random.normal(0.00025, 0.25, num)
+    initB = np.random.normal(0.00025, 0.025, num)
 
     bias = np.zeros([num, samples])
     bias[:, 0] = initB.T
