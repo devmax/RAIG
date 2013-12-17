@@ -28,17 +28,16 @@ class Viterbi():
     B = None
 
     Bp = None
+    Bpr = None
 
     lim = None
 
-    steps = None
+    Vs = None
 
     def __init__(self, obs, resW=0.005, resB=0.001,
-                 sigmaW=0.0085, sigmaB=0.00015, steps=1):
+                 sigmaW=0.0085, sigmaB=0.0015):
         """
         """
-        self.steps = steps
-
         self.obs = obs
 
         self.resB = resB
@@ -65,23 +64,21 @@ class Viterbi():
                 maxw = val
 
         lim = max((minw*-1), maxw)
-        lim = round(lim*1000.0)
-        lim += (5-lim % 5)
-        lim = lim/1000.
+        self.lim = lim
 
-        self.states = np.concatenate((np.arange(0, -lim-self.resW,
-                                                -self.resW)[:0:-1],
-                                      np.arange(0, lim+self.resW, self.resW)),
-                                     1)
+        self.states = np.concatenate((np.arange(0, -lim,
+                                                -self.resW)[:0:-1], np.arange(0, lim, self.resW)), 1)
 
         self.Nw = self.states.shape[0]
 
-        self.Tw = np.empty([self.Nw, self.Nw])
+        self.Tw = np.ones([self.Nw, self.Nw])*10.
 
         self.V = np.ones([self.N, self.Nw])*10.
+        self.Vs = np.ones([2, self.Nw])*10.
         self.B = np.ones([self.N, self.Nw], dtype=np.int32)*-1
 
         self.Bp = np.zeros(self.N)
+        self.Bpr = np.zeros(self.N)
 
     def createMatrices(self):
         """
@@ -93,9 +90,9 @@ class Viterbi():
         for j in xrange(self.Nw):
             for i in xrange(self.Nw):
                 # probability that state j came from state i
-                self.Tw[i, j] = prob.pdf(abs(j-i)*self.resW)
+                self.Tw[i, j] = prob.pdf(abs(j-i)*self.resW)/100.
 
-            self.Tw[:, j] /= sum(self.Tw[:, j])
+            #self.Tw[:, j] /= sum(self.Tw[:, j])
 
             for i in xrange(self.Nw):
                 p = self.Tw[i, j]
@@ -104,14 +101,12 @@ class Viterbi():
                 else:
                     self.Tw[i, j] = 10.
 
-            #if p != 0:
-            #    self.Tw[i] = math.log(p)
-            #else:
-            #    self.Tw[i] = 10.
-
     def getProb(self, x, mu, sigma, res):
         return (0.5*(1+math.erf((x-mu+res)/(math.sqrt(2)*sigma))) -
                 0.5*(1+math.erf((x-mu-res)/(math.sqrt(2)*sigma))))
+
+    def getPDF(self, x, mu, sigma):
+        return (1/(math.sqrt(2)*sigma))*math.exp((-0.5)*pow(((x-mu)/sigma), 2))
 
     def getBiasTrans(self, init, final):
         """
@@ -123,37 +118,22 @@ class Viterbi():
         else:
             return -9999
 
-    def iterate(self, res, div, t, ol_idx, oh_idx, nl_idx, nh_idx):
+    def iterate(self, res, t):
 
-        p_ml = -1e1000
+        p_ml = -1e10
         ml = None
+
         # looping over possible new states
-        for i in xrange(nl_idx, nh_idx, (int)(res/self.resW)):
-            p_max = -1e1000
+        for i in xrange(self.Nw):
+            p_max = -1e10
             s_max = None
             # looping over old states
-            for j in xrange(ol_idx, oh_idx, (int)(res/self.resW)):
-                if self.Tw[j, i] <= 0 and self.V[t-self.steps, j] <= 0.:
-                    p = self.V[t-self.steps, j] + self.Tw[j, i]
+            for j in xrange(self.Nw):
+                if self.Tw[j, i] <= 0. and self.Vs[0, j] <= 0.:
+                    p = self.Vs[0, j] + self.Tw[j, i]
                     for sens in xrange(self.Ns):
-                        oi = round(self.obs[sens, t-self.steps]*div)
-                        of = round(self.obs[sens, t]*div)
-
-                        if res == 0.005:
-                            r = oi % 5
-                            oi += 5-r if r > 2 else -r
-
-                            r = of % 5
-                            of += 5-r if r > 2 else -r
-
-                            bi = (oi/div) - round(self.states[j], 3)
-                            bf = (of/div) - round(self.states[i], 3)
-                            bi = self.obs[sens, t-self.steps] - self.states[j]
-                            bf = self.obs[sens, t] - self.states[i]
-
-                        else:
-                            bi = (oi/div) - round(self.states[j], 4)
-                            bf = (of/div) - round(self.states[i], 4)
+                        bi = self.obs[sens, t-1] - self.states[j]
+                        bf = self.obs[sens, t] - self.states[i]
 
                         p += self.getBiasTrans(bi, bf)
 
@@ -161,12 +141,15 @@ class Viterbi():
                         p_max = p
                         s_max = j
 
-            self.V[t, i] = p_max
+            self.Vs[1, i] = p_max
             self.B[t, i] = s_max
 
             if p_max > p_ml:
                 p_ml = p_max
                 ml = i
+                self.Bp[t] = self.states[ml]
+
+        self.Vs[0] = np.copy(self.Vs[1])
 
         return ml
 
@@ -175,47 +158,23 @@ class Viterbi():
         find most likely sequence of states given observations (obs)
         """
         for i in xrange(self.Nw):
-            p = self.getProb(self.states[i], 0.08702488, 0.05, self.resW)
+            p = self.getProb(self.states[i], 0., 0.5, self.resW)
             if p != 0:
-                self.V[0, i] = math.log(p)
+                self.Vs[0, i] = math.log(p)
             else:
-                self.V[0, i] = -1e1000
+                self.Vs[0, i] = 1e2
 
         self.B[0] = np.arange(self.Nw, dtype=np.int32)
         self.Bp[0] = 0.
 
-        for t in xrange(self.steps, self.N, self.steps):  # looping over time
-            div = 1000.0
-            ml = self.iterate(0.005, div, t, 0, self.Nw, 0, self.Nw)
+        for t in xrange(1, self.N):  # looping over time
+            ml = self.iterate(0.005, t)
 
-            self.Bp[t] = self.states[ml]
+        st = ml
 
-            refine = False
-
-            if refine:
-                src = self.B[t, ml]
-                ol_idx = max(src, 0)
-                oh_idx = min(src+1, self.Nw)
-
-                if self.V[t, ol_idx] == 10.:
-                    ol_idx = src
-                if self.V[t, oh_idx-1] == 10.:
-                    oh_idx = src+1
-
-                nl_idx = max(ml - (int)(0.005/self.resW)+1, 0)
-                nh_idx = min(ml + (int)(0.005/self.resW), self.Nw)
-
-                div = 10000.
-                ml_fine = self.iterate(0.0001, div, t, ol_idx, oh_idx,
-                                       nl_idx, nh_idx, self.V[t, ml], ml)
-
-                self.Bp[t] = self.states[ml_fine]
-
-        #st = np.argmax(self.V[-1])
-
-        #for t in xrange(self.N-1, -1, -1):
-        #    self.Bp[t] = self.states[st]
-        #    st = self.B[t, st]
+        for t in xrange(self.N-1, -1, -1):
+            self.Bpr[t] = self.states[st]
+            st = self.B[t, st]
 
     def createRun(self, omega):
         """
@@ -224,8 +183,9 @@ class Viterbi():
         self.createMatrices()
         self.findSequence()
 
-        plt.plot(self.Bp, 'r')
+        plt.plot(self.Bpr, 'r')
         plt.plot(omega[:self.Bp.shape[0]], 'g')
+        plt.show()
 
     def run(self, omega):
 

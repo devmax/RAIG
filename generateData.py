@@ -123,8 +123,8 @@ if __name__ == "__main__":
 
     num = 4
 
-    bias, omega, obs = generateVariant(num, 500000, 1.8)
-    #bias, omega, obs = sanityCheck(num, 150000)
+    #bias, omega, obs = generateVariant(num, 500000, 1.8)
+    bias, omega, obs = sanityCheck(num, 150000)
     #bias, omega, obs = generate(num, 150000)
 
     plt.figure()

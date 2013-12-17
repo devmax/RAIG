@@ -33,7 +33,7 @@ cpdef createMatrices(int Nw, double resW, double sigmaW):
 
     cdef double sqrt_tpi = sqrt(2*math.pi)
 
-    cdef np.ndarray[np.double_t, ndim=2] Tw = np.empty([Nw, Nw])
+    cdef np.ndarray[np.double_t, ndim = 2] Tw = np.empty([Nw, Nw])
 
     for j in xrange(Nw):
         for i in xrange(Nw):
@@ -48,7 +48,6 @@ cpdef createMatrices(int Nw, double resW, double sigmaW):
                 Tw[<unsigned int>i, <unsigned int>j] = log(p)
             else:
                 Tw[<unsigned int>i, <unsigned int>j] = 10.0
-
     return Tw
 
 cpdef double getBiasTrans(double init, double final, double sigmaB):
@@ -71,17 +70,23 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     cdef int N = obs.shape[1]
     cdef int Ns = obs.shape[0]
 
-    cdef np.ndarray[np.double_t, ndim = 2] V = np.ones([N, Nw])*(10.0)
+    cdef np.ndarray[np.double_t, ndim = 2] V = np.ones([2, Nw])*(10.0)
     cdef np.ndarray[np.int_t, ndim = 2] B = np.empty([N, Nw], dtype=np.int)
 
     cdef np.ndarray[np.double_t, ndim = 1] Bp = np.zeros(N, dtype=np.double)
 
-    cdef np.ndarray[np.double_t, ndim = 2] Tw = createMatrices(Nw, resW, sigmaW)
+    cdef np.ndarray[np.double_t, ndim = 2] Tw = createMatrices(Nw,
+                                                               resW, sigmaW)
 
-    cdef sqrt_tpi = sqrt(2*math.pi)
+    cdef double sqrt_tpi = sqrt(2*math.pi)
+    cdef double pr
 
     for i in xrange(Nw):
-        V[0, i] = getProb(states[i], 0, 0.5, resW)
+        pr = getProb(states[i], 0, 0.5, resW)
+        if pr != 0:
+            V[0, i] = log(pr)
+        else:
+            V[0, i] = 1e2
 
     B[0] = np.arange(Nw, dtype=np.int)
     Bp[0] = 0.
@@ -92,33 +97,19 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     cdef double p_ml
     cdef unsigned int ml
 
-    cdef double oi
-    cdef double of
-    cdef float r
-    cdef double div = 1000.0
-
     for t in xrange(1, N):  # looping over time
+        if t % 1000 == 0:
+            print "Observation number: ",t
         p_ml = -1e1000
         for i in xrange(Nw):  # looping over possible new states
             p_max = -1e1000
             # looping over old states
             for j in xrange(Nw):
-                if Tw[< unsigned int > j, < unsigned int > i] <= 0.:
-                    p = V[< unsigned int > (t-1), < unsigned int > j]\
+                if Tw[< unsigned int > j, < unsigned int > i] <=\
+                0. and V[0, < unsigned int > j] <= 0:
+                    p = V[0, < unsigned int > j]\
                     + Tw[< unsigned int > j, < unsigned int > i]
                     for sens in range(Ns):
-                        #oi = round(obs[< unsigned int > sens, < unsigned
-                        #int > (t-1)] * div)
-                        #of = round(obs[<unsigned int> sens, <unsigned
-                        #int> t] * div)
-                        #r = oi % 5
-                        #oi += 5-r if r > 2 else -r
-
-                        #r = of % 5
-                        #of += 5-r if r > 2 else -r
-
-                        #bi = (oi/div) - states[<unsigned int>j]
-                        #bf = (of/div) - states[<unsigned int>i]
                         bi = obs[< unsigned int > sens, < unsigned int
                                  > (t-1)] - states[< unsigned int > j]
                         bf = obs[< unsigned int > sens, < unsigned int
@@ -129,42 +120,34 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                         p_max = p
                         s_max = j
 
-            V[< unsigned int > t, < unsigned int > i] = p_max
+            V[1, < unsigned int > i] = p_max
             B[< unsigned int > t, < unsigned int > i] = s_max
 
             if p_max > p_ml:
                 p_ml = p_max
                 ml = i
                 Bp[< unsigned int > t] = states[< unsigned int > ml]
+        V[0] = np.copy(V[1])
 
     cdef np.ndarray[np.double_t, ndim = 1] Bpf = np.zeros(N, dtype=np.double)
 
-    cdef double vmax = -1e100000000
-    cdef unsigned int st
-
-    for i in xrange(Nw):
-        if(V[< unsigned int > (N-1), < unsigned int > i] < 0
-           and V[< unsigned int > (N-1), < unsigned int > i] > vmax):
-            vmax = V[< unsigned int > (N-1), < unsigned int > i]
-            st = i
-
     for t in xrange(N-1, -1, -1):
-        Bpf[< unsigned int > t] = states[< unsigned int > st]
-        st = B[< unsigned int > t, < unsigned int > st]
+        Bpf[< unsigned int > t] = states[< unsigned int > ml]
+        ml = B[< unsigned int > t, < unsigned int > ml]
 
     return Bp, Bpf, V, B
 
 
 def estimate(obs, omega):
 
-    print "foobar"
+    print "fbar"
     N = obs.shape[1]
     omega = omega[:N]
 
-    resW = 0.005
+    resW = 0.008
 
     sigmaW = 0.0085
-    sigmaB = 0.0015
+    sigmaB = 0.00015
 
     Ns = obs.shape[0]
 
@@ -181,18 +164,12 @@ def estimate(obs, omega):
             maxw = val
 
     lim = double_max((minw*-1), maxw)
-
     states = np.concatenate((np.arange(0, -lim, -resW)[:0:-1],
                              np.arange(0, lim, resW)), 1)
 
     Bp, Bpf, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
 
-    err = []
-    for i in xrange(N):
-        st = np.argmax(V[i])
-        err.append((states[st]-omega[i]))
-
-    err = np.array(err)
+    err = Bp - omega
 
     plt.subplot(211)
 
@@ -204,7 +181,7 @@ def estimate(obs, omega):
 
     plt.subplot(212)
     plt.plot(err, label="Error in angular rate estimation")
-    plt.plot(np.cumsum(err), label="Cumulative error in rate")
+    #plt.plot(np.cumsum(err), label="Cumulative error in rate")
     plt.legend()
     plt.xlabel('Time')
     plt.ylabel('Error')
@@ -216,6 +193,7 @@ def estimate(obs, omega):
 
 def run(obs, omega):
 
+    print "Using true sigma values"
     N = obs.shape[1]
     omega = omega[:N]
 
@@ -226,16 +204,16 @@ def run(obs, omega):
     estimates = []
     resW = 1.
 
-    while resW >= 0.00006:
-        resW = np.round(pow(2.0, -count), 5)
-        res.append(resW)
+    res = [1.0, 0.5, 0.25, 0.125, 0.06, 0.04, 0.02, 0.01, 0.008, 0.005]#,
+           #0.0025, 0.0012, 0.00075, 0.0005, 0.0002, 0.0001, 0.00005]
 
-        print "Working on resolution of ", resW
-        sigmaW = 0.0085
-        sigmaB = 0.0015
+    sigmaW = 0.0085
+    sigmaB = 0.00015
 
-        Ns = obs.shape[0]
+    Ns = obs.shape[0]
 
+    for resW in res:
+        print "\nWorking on resolution of ", resW
         minw = 1e10
         maxw = -1e10
 
@@ -254,12 +232,14 @@ def run(obs, omega):
                                  np.arange(0, lim, resW)), 1)
 
         Bp, Bpf, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
-
-        err = math.sqrt(np.sum(np.power(omega - Bpf, 2))/N)
+        err = Bpf - omega
 
         numStates.append(states.shape[0])
         error.append(err)
         # estimates.append(Bpf)
         count += 1
+        print "\n", states.shape[0], " states, error= ",\
+            np.sqrt(np.sum(np.power(err, 2))/N)
+        print "*"*25
 
     return numStates, res, error, estimates
