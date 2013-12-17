@@ -129,25 +129,23 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                 Bp[< unsigned int > t] = states[< unsigned int > ml]
         V[0] = np.copy(V[1])
 
-    cdef np.ndarray[np.double_t, ndim = 1] Bpf = np.zeros(N, dtype=np.double)
+    cdef np.ndarray[np.double_t, ndim = 1] Bpv = np.zeros(N, dtype=np.double)
 
     for t in xrange(N-1, -1, -1):
-        Bpf[< unsigned int > t] = states[< unsigned int > ml]
+        Bpv[< unsigned int > t] = states[< unsigned int > ml]
         ml = B[< unsigned int > t, < unsigned int > ml]
 
-    return Bp, Bpf, V, B
+    return Bp, Bpv, V, B
 
 
-def estimate(obs, omega):
+def estimate(obs, omega, resW, sigmaB):
 
-    print "fbar"
     N = obs.shape[1]
     omega = omega[:N]
 
-    resW = 0.008
-
     sigmaW = 0.0085
-    sigmaB = 0.00015
+    print "bias standard deviation = ", sigmaB
+    print "Resolution = ", resW
 
     Ns = obs.shape[0]
 
@@ -167,28 +165,58 @@ def estimate(obs, omega):
     states = np.concatenate((np.arange(0, -lim, -resW)[:0:-1],
                              np.arange(0, lim, resW)), 1)
 
-    Bp, Bpf, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
+    print states.shape[0], "states, [", states[0], ",", states[-1], "]"
 
-    err = Bp - omega
+    Bp, Bpv, V, B = findSequence(resW, sigmaW, sigmaB, states, obs)
 
+    plt.figure(1)
     plt.subplot(211)
 
-    plt.plot(Bpf, color='r', label="Estimated angular rate")
+    plt.plot(Bpv, color='r', label="Estimated rate(backtrack)")
     plt.plot(omega, color='g', label="True angular rate")
-    plt.legend(loc=2)
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
+               mode="expand", borderaxespad=0.)
+    plt.title("Viterbi estimate")
     plt.xlabel('Time')
     plt.ylabel('Angular Rate')
 
     plt.subplot(212)
+
+    plt.plot(Bp, color='r', label="Estimated rate(forward)")
+    plt.plot(omega, color='g', label="True angular rate")
+    plt.title("Instantaneous estimates")
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
+               mode="expand", borderaxespad=0.)
+    plt.xlabel("Time")
+    plt.ylabel("Angular Rate")
+
+    plt.figure(2)
+
+    plt.subplot(211)
+    err = Bp - omega
+
     plt.plot(err, label="Error in angular rate estimation")
     #plt.plot(np.cumsum(err), label="Cumulative error in rate")
-    plt.legend()
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
+               mode="expand", borderaxespad=0.)
+    plt.title("Instantaneous estimate error")
+    plt.xlabel('Time')
+    plt.ylabel('Error')
+
+    plt.subplot(212)
+    err = Bpv - omega
+
+    plt.plot(err, label="Error in angular rate estimation")
+    #plt.plot(np.cumsum(err), label="Cumulative error in rate")
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
+               mode="expand", borderaxespad=0.)
+    plt.title("Viterbi estimate error")
     plt.xlabel('Time')
     plt.ylabel('Error')
 
     plt.show()
 
-    return Bp, Bpf, V, B, states, err
+    return Bp, Bpv, V, B, states, err
 
 
 def run(obs, omega):

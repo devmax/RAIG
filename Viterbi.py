@@ -28,13 +28,13 @@ class Viterbi():
     B = None
 
     Bp = None
-    Bpr = None
+    Bpv = None
 
     lim = None
 
     Vs = None
 
-    def __init__(self, obs, resW=0.005, resB=0.001,
+    def __init__(self, obs, omega, resW=0.005, resB=0.001,
                  sigmaW=0.0085, sigmaB=0.0015):
         """
         """
@@ -78,7 +78,7 @@ class Viterbi():
         self.B = np.ones([self.N, self.Nw], dtype=np.int32)*-1
 
         self.Bp = np.zeros(self.N)
-        self.Bpr = np.zeros(self.N)
+        self.Bpv = np.zeros(self.N)
 
     def createMatrices(self):
         """
@@ -119,7 +119,6 @@ class Viterbi():
             return -9999
 
     def iterate(self, res, t):
-
         p_ml = -1e10
         ml = None
 
@@ -173,25 +172,23 @@ class Viterbi():
         st = ml
 
         for t in xrange(self.N-1, -1, -1):
-            self.Bpr[t] = self.states[st]
+            self.Bpv[t] = self.states[st]
             st = self.B[t, st]
 
-    def createRun(self, omega):
+    def plot(self):
         """
         Run the viterbi algorithm, and plot data against GT
         """
+        plt.plot(self.Bpv, 'r')
+        plt.plot(self.omega[:self.Bp.shape[0]], 'g')
+        plt.show()
+
+    def run(self):
+
         self.createMatrices()
         self.findSequence()
 
-        plt.plot(self.Bpr, 'r')
-        plt.plot(omega[:self.Bp.shape[0]], 'g')
-        plt.show()
-
-    def run(self, omega):
-
-        self.findSequence()
-
-        plt.plot(self.Bp, 'r')
-        plt.plot(omega[:self.Bp.shape[0]], 'g')
+        plt.plot(self.Bpv, 'r')
+        plt.plot(self.omega[:self.Bp.shape[0]], 'g')
 
         plt.show()
