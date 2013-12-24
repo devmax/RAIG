@@ -35,10 +35,12 @@ class Viterbi():
     Vs = None
 
     def __init__(self, obs, omega, resW=0.005, resB=0.001,
-                 sigmaW=0.0085, sigmaB=0.0015):
+                 sigmaW=0.0085, sigmaB=0.00015):
         """
         """
         self.obs = obs
+
+        self.omega = omega[:obs.shape[1]]
 
         self.resB = resB
         self.resW = resW
@@ -79,6 +81,9 @@ class Viterbi():
 
         self.Bp = np.zeros(self.N)
         self.Bpv = np.zeros(self.N)
+
+        self.pRandom = np.zeros(self.Nw)
+        self.nRandom = np.zeros(self.Nw)
 
     def createMatrices(self):
         """
@@ -131,8 +136,10 @@ class Viterbi():
                 if self.Tw[j, i] <= 0. and self.Vs[0, j] <= 0.:
                     p = self.Vs[0, j] + self.Tw[j, i]
                     for sens in xrange(self.Ns):
-                        bi = self.obs[sens, t-1] - self.states[j]
-                        bf = self.obs[sens, t] - self.states[i]
+                        bi = self.obs[sens, t-1] -\
+                            (self.states[j]+self.pRandom[j])
+                        bf = self.obs[sens, t] -\
+                            (self.states[i]+self.nRandom[i])
 
                         p += self.getBiasTrans(bi, bf)
 
@@ -167,7 +174,9 @@ class Viterbi():
         self.Bp[0] = 0.
 
         for t in xrange(1, self.N):  # looping over time
+            self.nRandom = np.random.normal(0, 0.002, self.Nw)
             ml = self.iterate(0.005, t)
+            self.pRandom = np.copy(self.nRandom)
 
         st = ml
 
@@ -189,6 +198,6 @@ class Viterbi():
         self.findSequence()
 
         plt.plot(self.Bpv, 'r')
-        plt.plot(self.omega[:self.Bp.shape[0]], 'g')
+        plt.plot(self.omega, 'g')
 
         plt.show()

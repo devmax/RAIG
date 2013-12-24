@@ -99,7 +99,7 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
 
     for t in xrange(1, N):  # looping over time
         if t % 1000 == 0:
-            print "Observation number: ",t
+            print "Observation number: ", t
         p_ml = -1e1000
         for i in xrange(Nw):  # looping over possible new states
             p_max = -1e1000
@@ -111,9 +111,10 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                     + Tw[< unsigned int > j, < unsigned int > i]
                     for sens in range(Ns):
                         bi = obs[< unsigned int > sens, < unsigned int
-                                 > (t-1)] - states[< unsigned int > j]
+                                 > (t-1)] - (states[< unsigned int >
+                                                    j])
                         bf = obs[< unsigned int > sens, < unsigned int
-                                 > t] - states[< unsigned int > i]
+                                 > t] - (states[< unsigned int > i])
                         p += getBiasTrans(bi, bf, sigmaB)
 
                     if p > p_max:
@@ -139,6 +140,8 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
 
 
 def estimate(obs, omega, resW, sigmaB):
+
+    print "Randomly offsetting states, foo!"
 
     N = obs.shape[1]
     omega = omega[:N]
