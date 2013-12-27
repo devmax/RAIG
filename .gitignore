@@ -3,4 +3,5 @@
 *.c
 build/*
 bin/
-data/
+*.csv
+*.class
