@@ -141,8 +141,6 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
 
 def estimate(obs, omega, resW, sigmaB):
 
-    print "Randomly offsetting states, foo!"
-
     N = obs.shape[1]
     omega = omega[:N]
 

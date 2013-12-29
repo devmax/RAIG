@@ -15,9 +15,10 @@ public class readPIMU
 
     public void clean()
     {
-	String files[] = {"/home/dev/Documents/RAIG/data/pimu_2013-12-19_7",
-			  "/home/dev/Documents/RAIG/data/pimu_2013-12-19_10",
-			  "/home/dev/Documents/RAIG/data/pimu_2013-12-19_13"};
+
+	String files[] = {"/home/dev/Documents/RAIG/data/pimu_1",
+			  "/home/dev/Documents/RAIG/data/pimu_2",
+			  "/home/dev/Documents/RAIG/data/pimu_3"};
 
 	BufferedReader br = null;
 	FileWriter writer = null;
@@ -55,15 +56,15 @@ public class readPIMU
 		while ((line = br.readLine()) != null){
 		    String[] row = line.split(delim);
 
-		    val[0] = (Double.parseDouble(row[0])-init[0])/1.0E6;
-		    val[1] = (Double.parseDouble(row[1])-init[1])/1.0E6;
-		    val[2] = (Double.parseDouble(row[2])-init[2])/1.0E6 % 360;
-		    val[3] = -(Double.parseDouble(row[5])-init[3])/1.0E6 % 360;
-		    val[4] = (Double.parseDouble(row[6])-init[4])/1.0E6 % 360;
-		    val[5] = (Double.parseDouble(row[9])-init[5])/1.0E6 % 360;
-		    val[6] = (Double.parseDouble(row[10]))*ascale;
-		    val[7] = (Double.parseDouble(row[11]))*ascale;
-		    val[8] = (Double.parseDouble(row[12]))*ascale;
+		    val[0] = (Double.parseDouble(row[0])-init[0])/1.0E6; //time
+		    val[1] = (Double.parseDouble(row[1])-init[1])/1.0E6; //pimu time
+		    val[2] = (Double.parseDouble(row[2])-init[2])/1.0E6 % 360; //yaw 1
+		    val[3] = -(Double.parseDouble(row[5])-init[3])/1.0E6 % 360; //roll
+		    val[4] = (Double.parseDouble(row[6])-init[4])/1.0E6 % 360; //yaw 2
+		    val[5] = (Double.parseDouble(row[9])-init[5])/1.0E6 % 360; //pitch
+		    val[6] = (Double.parseDouble(row[10]))*ascale; //ax
+		    val[7] = (Double.parseDouble(row[11]))*ascale; //ay
+		    val[8] = (Double.parseDouble(row[12]))*ascale; //az
 
 		    for (int i=0; i<=7; i++){
 			writer.append(Double.toString(val[i]));
