@@ -4,12 +4,42 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.lang.Double;
 import java.io.FileWriter;
+import java.util.*;
+import java.io.File;
 
-public class readPIMU
+/*
+Remodel bias: Angular acceleration for bias at each time step is a
+Gaussian centered at alpha times the value of the current bias. Find
+alpha.
+ */
+
+public class findAlpha
 {
+    public class Pair<A> 
+    {
+	private final A omega;
+	private final A alpha;
+
+	public Pair(A omega, A alpha){
+	    this.omega = omega;
+	    this.alpha = alpha;
+	}
+
+	public A getOmega(){
+	    return omega;
+	}
+
+	public A getAlpha(){
+	    return alpha;
+	}
+
+    }
+
+    LinkedList <Pair< Double >> [] data;
+
     public static void main(String[] args)
     {
-	readPIMU reader = new readPIMU();
+	findAlpha reader = new findAlpha();
 	reader.getData();
     }
 
@@ -23,28 +53,35 @@ public class readPIMU
 	return gaussian((x-mu)/sigma)/sigma;
     }
 
-    public double getLL(LinkedList omega, LinkedList alpha, double param)
+    public double getLL(int index, double param)
     {
-	Iterator<double[]> w = omega.iterator();
-	Iterator<double[]> a = alpha.iterator();
+	double ll = 0.0;
 
-	double[] rate, accel;
+	Iterator<Pair<Double>> it = data[index].iterator();
 
-	while(w.hasNext() && a.hasNext()){
-	    rate = w.next();
-	    accel = a.next();
+	while(it.hasNext()){
+	    Pair<Double> pair = it.next();
 
-	    
+	    ll += Math.log(gaussian(pair.alpha,param*pair.omega,30.0));
 	}
+
+	return ll;
     }
 
     public void getData()
     {
 	File pwd = new File(new File(".").getAbsolutePath());
 
-	String files[] = {pwd.getCanonicalPath()+"/data/pimu_1",
-			  pwd.getCanonicalPath()+"/data/pimu_2",
-			  pwd.getCanonicalPath()+"/data/pimu_3"};
+	String files[] = new String[3];
+
+	try{
+	    files = new String[]{pwd.getCanonicalPath()+"/data/pimu_1",
+				 pwd.getCanonicalPath()+"/data/pimu_2",
+				 pwd.getCanonicalPath()+"/data/pimu_3"};
+	}
+	catch (IOException e) {
+	    e.printStackTrace();
+	}
 
 	BufferedReader br = null;
 	String line = "";
@@ -56,8 +93,12 @@ public class readPIMU
 	double[] a = new double[4]; //angular acceleration
 
 	for (String file: files){
-	    LinkedList<double[]> alpha = new LinkedList<double[]>();
-	    LinkedList<double[]> omega = new LinkedList<double[]>();
+	    data = new LinkedList[2];
+
+	    for(int j=0; j<data.length; j++){
+		data[j] = new LinkedList<Pair<Double>>();
+	    }
+	    
 	    try{
 		System.out.println("Parsing file:"+file);
 
@@ -105,8 +146,8 @@ public class readPIMU
 		    a[2] = (w[2]-prev[8])/dval[0]; //d2roll
 		    a[3] = (w[3]-prev[9])/dval[0]; //d2pitch
 
-		    omega.add(w);
-		    alpha.add(a);
+		    data[0].add(new Pair<Double>(w[0],a[0]));
+		    data[1].add(new Pair<Double>(w[1],a[1]));
 
 		    System.arraycopy(val, 0, prev, 0, val.length);
 		    System.arraycopy(w, 0, prev, val.length, w.length);
