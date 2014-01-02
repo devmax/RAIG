@@ -119,7 +119,7 @@ def parse(files):
     return obs
 
 if __name__ == "__main__":
-    files = ['pimu_1.csv', 'pimu_2.csv',
-             'pimu_3.csv']
+    files = ['../data/pimu_1.csv', '../data/pimu_2.csv',
+             '../data/pimu_3.csv']
 
     obs = parse(files)

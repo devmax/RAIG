@@ -1,19 +1,13 @@
+package pimu;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.Double;
-import java.io.FileWriter;
 import java.util.*;
-import java.io.File;
 
-/*
-Remodel bias: Angular acceleration for bias at each time step is a
-Gaussian centered at alpha times the value of the current bias. Find
-alpha.
- */
-
-public class findAlpha
+public class readPIMU
 {
     public class Pair<A> 
     {
@@ -35,74 +29,83 @@ public class findAlpha
 
     }
 
-    LinkedList <Pair< Double >> [] data;
+    String files[]; 
+    boolean read;
 
-    public static void main(String[] args)
+    int limit;
+    int[] indices; //0:yaw1, 1:yaw2, 2:roll, 3:pitch
+
+    LinkedList <Pair< Double >> [][] data;
+    double srate[];
+
+    public readPIMU(int limit, int[] indices, String[] files)
     {
-	findAlpha reader = new findAlpha();
-	reader.getData();
-    }
+	this.limit = limit;
+	this.indices = indices;
 
-    public double gaussian(double x)
-    {
-	return Math.exp(-x*x / 2) / Math.sqrt(2*Math.PI);
-    }
+	this.files = new String[files.length];
 
-    public double gaussian(double x, double mu, double sigma)
-    {
-	return gaussian((x-mu)/sigma)/sigma;
-    }
-
-    public double getLL(int index, double param)
-    {
-	double ll = 0.0;
-
-	Iterator<Pair<Double>> it = data[index].iterator();
-
-	while(it.hasNext()){
-	    Pair<Double> pair = it.next();
-
-	    ll += Math.log(gaussian(pair.alpha,param*pair.omega,30.0));
+	for(int i=0; i<files.length; i++){
+	    this.files[i] = "/home/dev/Documents/RAIG/data/"+files[i]+".csv";
 	}
 
-	return ll;
+	this.data = new LinkedList[this.files.length][this.indices.length];
+
+	for(int i=0; i<this.files.length; i++){
+	    for(int j=0; j<this.indices.length; j++){
+		this.data[i][j] = new LinkedList<Pair<Double>>();
+	    }
+	}
+
+	this.read = false;
+	this.srate = new double[this.files.length];
     }
 
-    public void getData()
+    public readPIMU(int[] indices, String[] files)
     {
-	File pwd = new File(new File(".").getAbsolutePath());
+	this(-1, indices, files);
+    }
 
-	String files[] = new String[3];
+    public LinkedList<Pair<Double>>[][] getData()
+    {
+	if(!read)
+	    readData();
 
-	try{
-	    files = new String[]{pwd.getCanonicalPath()+"/data/pimu_1",
-				 pwd.getCanonicalPath()+"/data/pimu_2",
-				 pwd.getCanonicalPath()+"/data/pimu_3"};
-	}
-	catch (IOException e) {
-	    e.printStackTrace();
-	}
+	return data;
+    }
+
+    public double getSRate(int file)
+    {
+	return srate[file];
+    }
+
+    public boolean checkRollover(double prev, double current)
+    {
+	if((prev+current) < 10.0 && (prev+current) > -10.0 && Math.abs(prev-current) > 500)
+	    return true;
+	else
+	    return false;
+    }
+
+    public void readData()
+    {
+	read = true;
 
 	BufferedReader br = null;
 	String line = "";
 	String delim = ",";
+
 
 	double[] val = new double[6]; //raw readings
 	double[] dval = new double[6]; //differential of raw readings
 	double[] w = new double[4]; //angular velocity
 	double[] a = new double[4]; //angular acceleration
 
-	for (String file: files){
-	    data = new LinkedList[2];
-
-	    for(int j=0; j<data.length; j++){
-		data[j] = new LinkedList<Pair<Double>>();
-	    }
+	for (int i=0; i<files.length; i++){
 	    
 	    try{
-		System.out.println("Parsing file:"+file);
-
-		file = file + ".csv";
+		String file = files[i];
+		System.out.println("\nParsing file:"+file);
 
 		br = new BufferedReader(new FileReader(file));
 
@@ -129,6 +132,27 @@ public class findAlpha
 		    val[4] = Double.parseDouble(row[6]); //yaw 2
 		    val[5] = -Double.parseDouble(row[9]); //pitch
 
+		    if(checkRollover(prev[2],val[2])){
+			System.out.println("Rollover detected in yaw1:"+
+					   prev[2]+"->"+val[2]);
+			val[2] += prev[2];
+		    }
+		    if(checkRollover(prev[3],val[3])){
+			System.out.println("Rollover detected in roll:"+
+					   prev[3]+"->"+val[3]);
+			val[3] += prev[3];
+		    }
+		    if(checkRollover(prev[4],val[4])){
+			System.out.println("Rollover detected in yaw2:"+
+					   prev[4]+"->"+val[4]);
+			val[4] += prev[4];
+		    }
+		    if(checkRollover(prev[5],val[5])){
+			System.out.println("Rollover detected in pitch:"+
+					   prev[5]+"->"+val[5]);
+			val[5] += prev[5];
+		    }
+
 		    dval[0] = (val[0]-prev[0])/1.0E6; //time
 		    dval[1] = (val[1]-prev[1])/1.0E6; //pimu time
 		    dval[2] = (val[2]-prev[2])/1.0E6; //yaw 1
@@ -145,9 +169,10 @@ public class findAlpha
 		    a[1] = (w[1]-prev[7])/dval[0]; //d2yaw 2
 		    a[2] = (w[2]-prev[8])/dval[0]; //d2roll
 		    a[3] = (w[3]-prev[9])/dval[0]; //d2pitch
-
-		    data[0].add(new Pair<Double>(w[0],a[0]));
-		    data[1].add(new Pair<Double>(w[1],a[1]));
+		    
+		    for(int j=0; j<indices.length; j++){
+			data[i][j].add(new Pair<Double>(w[indices[j]],a[indices[j]]));
+		    }
 
 		    System.arraycopy(val, 0, prev, 0, val.length);
 		    System.arraycopy(w, 0, prev, val.length, w.length);
@@ -157,11 +182,15 @@ public class findAlpha
 		    if (count%3.0E6 == 0)
 			System.out.println("Line number:"+count);
 
-		}
+		    if (count == limit){
+			//System.out.println("Reached limit, stop reading");
+			break;
+		    }
 
+		}
+		srate[i] = dval[0];
 		System.out.println("Finished file, read "+count+" lines");
 
-		//TODO: Insert call to function that finds alpha here
 	    }
 	    catch (FileNotFoundException e) {
 		e.printStackTrace();
