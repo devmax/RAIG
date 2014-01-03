@@ -10,6 +10,8 @@ import java.io.FileWriter;
 import java.util.*;
 import java.io.File;
 
+import org.math.plot.*;
+
 import pimu.readPIMU;
 
 /*
@@ -20,7 +22,8 @@ alpha.
 
 public class findAlpha
 {
-    LinkedList <readPIMU.Pair< Double >> [][] data;
+    LinkedList<Double>[][] omega;
+    LinkedList<Double>[][] alpha;
     double initial;
 
     readPIMU reader;
@@ -36,8 +39,11 @@ public class findAlpha
 	indices = new int[]{0};
 	
 	reader = new readPIMU(1000, indices, new String[]{"pimu_1","pimu_2","pimu_3"});
+	reader.filter(5);
 
-	data = reader.getData();
+	omega=reader.getOmega();
+	alpha=reader.getAlpha();
+
 	initial = 0.1;
 
 	eg = 0.1E-3;
@@ -61,13 +67,15 @@ public class findAlpha
 	else
 	    System.out.println("Using default initial value of "+descent.initial+" for alpha");
 
-	for(int i=0; i<descent.data.length; i++){
+	/*
+	for(int i=0; i<descent.omega.length; i++){
 	    System.out.println("\nPerforming gradient descent on file "+(i+1));
 	    for(int j=0; j<descent.indices.length; j++){
 		System.out.println("Index="+(j+1));
 		descent.gradientDescent(i, j);
 	    }
 	}
+	*/
 
     }
 
@@ -86,26 +94,28 @@ public class findAlpha
 	double ll = 0.0;
 	double srate = reader.getSRate(file);
 
-	Iterator<readPIMU.Pair<Double>> it = data[file][index].iterator();
+	ListIterator<Double> w=omega[file][index].listIterator();
+	ListIterator<Double> a=alpha[file][index].listIterator();
+
 	int count = 0;
-
-	    while(it.hasNext()){
-		count ++;
+	while(w.hasNext()){
+	    count ++;
 	    
-		readPIMU.Pair<Double> pair = it.next();
-		double mu = -(param/srate)*pair.getOmega();
+	    double rate = w.next();
+	    double accel = a.next();
+	    double mu = -(param/srate)*rate;
 
-		try{
+	    try{
 
-		    double pdf = Math.log(gaussian(pair.getAlpha(),mu,30.0));
-		    if(pdf == Double.NEGATIVE_INFINITY)
-			throw new ArithmeticException("INFINITY EXCEPTION: x="+
-						      pair.getAlpha()+",mu="+mu+",w="+pair.getOmega());
-		    ll += pdf;
-		}	    
-		catch(ArithmeticException e){
-		    System.out.println(e.getMessage());
-		}
+		double pdf = Math.log(gaussian(accel,mu,30.0));
+		if(pdf == Double.NEGATIVE_INFINITY)
+		    throw new ArithmeticException("INFINITY EXCEPTION: x="+
+						  accel+",mu="+mu+",w="+rate);
+		ll += pdf;
+	    }	    
+	    catch(ArithmeticException e){
+		System.out.println(e.getMessage());
+	    }
 		
 	}
 	return ll;

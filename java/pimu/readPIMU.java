@@ -5,7 +5,10 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.Double;
-import java.util.*;
+import java.util.LinkedList;
+import java.util.ListIterator;
+
+import pimu.meanFilter;
 
 public class readPIMU
 {
@@ -35,7 +38,10 @@ public class readPIMU
     int limit;
     int[] indices; //0:yaw1, 1:yaw2, 2:roll, 3:pitch
 
-    LinkedList <Pair< Double >> [][] data;
+    LinkedList<Double>[] time;
+    LinkedList<Double>[][] omega;
+    LinkedList<Double>[][] alpha;
+
     double srate[];
 
     public readPIMU(int limit, int[] indices, String[] files)
@@ -49,11 +55,16 @@ public class readPIMU
 	    this.files[i] = "/home/dev/Documents/RAIG/data/"+files[i]+".csv";
 	}
 
-	this.data = new LinkedList[this.files.length][this.indices.length];
+	this.time = new LinkedList[this.files.length];
+	this.omega = new LinkedList[this.files.length][this.indices.length];
+	this.alpha = new LinkedList[this.files.length][this.indices.length];
 
 	for(int i=0; i<this.files.length; i++){
+	    this.time[i] = new LinkedList<Double>();
+
 	    for(int j=0; j<this.indices.length; j++){
-		this.data[i][j] = new LinkedList<Pair<Double>>();
+		omega[i][j] = new LinkedList<Double>();
+		alpha[i][j] = new LinkedList<Double>();
 	    }
 	}
 
@@ -66,12 +77,20 @@ public class readPIMU
 	this(-1, indices, files);
     }
 
-    public LinkedList<Pair<Double>>[][] getData()
+    public LinkedList<Double>[][] getOmega()
     {
 	if(!read)
 	    readData();
 
-	return data;
+	return omega;
+    }
+
+    public LinkedList<Double>[][] getAlpha()
+    {
+	if(!read)
+	    readData();
+
+	return alpha;
     }
 
     public double getSRate(int file)
@@ -81,10 +100,53 @@ public class readPIMU
 
     public boolean checkRollover(double prev, double current)
     {
-	if((prev+current) < 10.0 && (prev+current) > -10.0 && Math.abs(prev-current) > 500)
+	if(Math.abs(prev+current) < 10.0 && Math.abs(prev-current) > 500)
 	    return true;
 	else
 	    return false;
+    }
+
+    public void filter(int windowSize)
+    {
+	if(!read)
+	    readData();
+
+	String[] axes = new String[]{"yaw1","yaw2","roll","pitch"};
+
+	for(int i=0; i<files.length; i++){
+	    System.out.println("Filtering file "+(i+1)+"...");
+	    for(int j=0; j<indices.length; j++){
+		System.out.println("Filtering axis "+axes[indices[j]]+"...");
+		meanFilter mf = new meanFilter(windowSize,omega[i][j]);
+		omega[i][j]=mf.getFiltered();
+	    }
+	}
+	calcAlpha();
+    }
+
+    public void calcAlpha()
+    {
+	for(int i=0; i<files.length; i++){
+	    ListIterator<Double> t = time[i].listIterator(0);
+	    for(int j=0; j<indices.length; j++){
+		ListIterator<Double> w = omega[i][j].listIterator(0);
+		ListIterator<Double> a = alpha[i][j].listIterator(1);
+
+		double t0 = t.next();
+		double w0 = w.next();
+
+		while(t.hasNext()){
+		    double t1=t.next();
+		    double w1=w.next();
+
+		    a.next();
+		    a.set((w1-w0)/(t1-t0));
+
+		    w0=w1;
+		    t0=t1;
+		}
+	    }
+	}
     }
 
     public void readData()
@@ -94,7 +156,6 @@ public class readPIMU
 	BufferedReader br = null;
 	String line = "";
 	String delim = ",";
-
 
 	double[] val = new double[6]; //raw readings
 	double[] dval = new double[6]; //differential of raw readings
@@ -121,6 +182,13 @@ public class readPIMU
 		prev[5] = -Double.parseDouble(initial[9]); // pitch
 
 		int count = 0;
+
+		time[i].add(prev[0]);
+		for(int j=0; j<indices.length; j++){
+		    omega[i][j].add(0.0);
+		    alpha[i][j].add(0.0);
+		}
+
 
 		while ((line = br.readLine()) != null){
 		    String[] row = line.split(delim);
@@ -169,11 +237,13 @@ public class readPIMU
 		    a[1] = (w[1]-prev[7])/dval[0]; //d2yaw 2
 		    a[2] = (w[2]-prev[8])/dval[0]; //d2roll
 		    a[3] = (w[3]-prev[9])/dval[0]; //d2pitch
-		    
-		    for(int j=0; j<indices.length; j++){
-			data[i][j].add(new Pair<Double>(w[indices[j]],a[indices[j]]));
-		    }
 
+		    time[i].add(val[0]);
+		    for(int j=0; j<indices.length; j++){
+			omega[i][j].add(w[indices[j]]);
+			alpha[i][j].add(a[indices[j]]);
+		    }
+		    
 		    System.arraycopy(val, 0, prev, 0, val.length);
 		    System.arraycopy(w, 0, prev, val.length, w.length);
 
