@@ -77,6 +77,10 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
 
     cdef np.ndarray[np.double_t, ndim = 2] Tw = createMatrices(Nw,
                                                                resW, sigmaW)
+    cdef np.ndarray[np.double_t, ndim =1] pRandom = np.zeros(Nw,
+                                                             dtype=np.double)
+    cdef np.ndarray[np.double_t, ndim =1] nRandom = np.zeros(Nw,
+                                                             dtype=np.double)
 
     cdef double sqrt_tpi = sqrt(2*math.pi)
     cdef double pr
@@ -101,6 +105,7 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
         if t % 1000 == 0:
             print "Observation number: ", t
         p_ml = -1e1000
+        nRandom = np.random.normal(0, 0.000001, Nw)
         for i in xrange(Nw):  # looping over possible new states
             p_max = -1e1000
             # looping over old states
@@ -112,9 +117,9 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                     for sens in range(Ns):
                         bi = obs[< unsigned int > sens, < unsigned int
                                  > (t-1)] - (states[< unsigned int >
-                                                    j])
+                                                    j]+pRandom[j])
                         bf = obs[< unsigned int > sens, < unsigned int
-                                 > t] - (states[< unsigned int > i])
+                                 > t] - (states[< unsigned int > i]+nRandom[i])
                         p += getBiasTrans(bi, bf, sigmaB)
 
                     if p > p_max:
@@ -129,6 +134,7 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                 ml = i
                 Bp[< unsigned int > t] = states[< unsigned int > ml]
         V[0] = np.copy(V[1])
+        pRandom = np.copy(nRandom)
 
     cdef np.ndarray[np.double_t, ndim = 1] Bpv = np.zeros(N, dtype=np.double)
 
@@ -175,8 +181,7 @@ def estimate(obs, omega, resW, sigmaB):
 
     plt.plot(Bpv, color='r', label="Estimated rate(backtrack)")
     plt.plot(omega, color='g', label="True angular rate")
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
-               mode="expand", borderaxespad=0.)
+    plt.legend()
     plt.title("Viterbi estimate")
     plt.xlabel('Time')
     plt.ylabel('Angular Rate')
@@ -186,20 +191,18 @@ def estimate(obs, omega, resW, sigmaB):
     plt.plot(Bp, color='r', label="Estimated rate(forward)")
     plt.plot(omega, color='g', label="True angular rate")
     plt.title("Instantaneous estimates")
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
-               mode="expand", borderaxespad=0.)
+    plt.legend()
     plt.xlabel("Time")
     plt.ylabel("Angular Rate")
 
     plt.figure(2)
-
     plt.subplot(211)
+
     err = Bp - omega
 
     plt.plot(err, label="Error in angular rate estimation")
     #plt.plot(np.cumsum(err), label="Cumulative error in rate")
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
-               mode="expand", borderaxespad=0.)
+    plt.legend()
     plt.title("Instantaneous estimate error")
     plt.xlabel('Time')
     plt.ylabel('Error')
@@ -209,8 +212,7 @@ def estimate(obs, omega, resW, sigmaB):
 
     plt.plot(err, label="Error in angular rate estimation")
     #plt.plot(np.cumsum(err), label="Cumulative error in rate")
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
-               mode="expand", borderaxespad=0.)
+    plt.legend()
     plt.title("Viterbi estimate error")
     plt.xlabel('Time')
     plt.ylabel('Error')

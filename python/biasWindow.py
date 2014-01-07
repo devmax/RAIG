@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 import parse
 import scipy.stats as stats
 
-windowSize = 75
+windowSize = 15
 
 
 def centeredMean(data):
+
     start = iter(data)
     end = iter(data)
 
@@ -21,7 +22,6 @@ def centeredMean(data):
     yield (float)(sum/count)
 
     for idx in xrange(1, N):
-
         if idx > (windowSize/2):
             sum = sum - next(start)
             if idx > (N-(windowSize/2)-1):

@@ -111,7 +111,9 @@ class Viterbi():
                 0.5*(1+math.erf((x-mu-res)/(math.sqrt(2)*sigma))))
 
     def getPDF(self, x, mu, sigma):
-        return (1/(math.sqrt(2)*sigma))*math.exp((-0.5)*pow(((x-mu)/sigma), 2))
+        return
+        (1/(math.sqrt(2)*sigma*np.pi))*math.exp((-0.5)*pow(((x-mu)/sigma),
+                                                        2))
 
     def getBiasTrans(self, init, final):
         """
@@ -123,7 +125,7 @@ class Viterbi():
         else:
             return -9999
 
-    def iterate(self, res, t):
+    def iterate(self, t):
         p_ml = -1e10
         ml = None
 
@@ -156,6 +158,7 @@ class Viterbi():
                 self.Bp[t] = self.states[ml]
 
         self.Vs[0] = np.copy(self.Vs[1])
+        self.pRandom = np.copy(self.nRandom)
 
         return ml
 
@@ -174,9 +177,8 @@ class Viterbi():
         self.Bp[0] = 0.
 
         for t in xrange(1, self.N):  # looping over time
-            self.nRandom = np.random.normal(0, 0.002, self.Nw)
-            ml = self.iterate(0.005, t)
-            self.pRandom = np.copy(self.nRandom)
+            self.nRandom = np.random.normal(0, 0.00015, self.Nw)
+            ml = self.iterate(t)
 
         st = ml
 
