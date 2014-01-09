@@ -39,7 +39,7 @@ class ParticleFilter:
         idx = np.random.randint(0, N-1)
         beta = 0
 
-        samples = []
+        samples = np.empty_like(choices)
 
         for i in xrange(count):
             beta += np.random.uniform(0, 2*w_max)
@@ -47,7 +47,7 @@ class ParticleFilter:
                 beta -= weights[idx]
                 idx = (idx + 1) % N
 
-            samples.append(choices[idx])
+            samples[i] = choices[idx]
 
         return samples
 
@@ -72,3 +72,21 @@ class ParticleFilter:
             self.w[i] = self.Gaussian(Z[0]-self.particles[0] -
                                       self.particles[i+1], self.meas[i][0],
                                       self.meas[i][1])
+
+    def getEstimate(self):
+
+        return self.particles[np.argmax(self.w)]
+
+    def resample(self):
+
+        self.particles = np.copy(self.draw(self.w, self.particles, self.N))
+
+
+def runFilter(obs, omega):
+
+    pf = ParticleFilter(obs.shape[1], obs.shape[0])
+
+    pf.setProcessModel((0.0, 0.0085), [(0.0, 0.00015)]*pf.dim)
+    pf.setMeasNoise((0.0, 0.00001)*pf.dim)
+
+    
