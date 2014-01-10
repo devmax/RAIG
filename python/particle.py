@@ -24,15 +24,17 @@ class ParticleFilter:
 
         self.meas = meas  # meas should be a 'dim'-d list of tuples
 
-    def populateInitial(self, omega, bias):
+    def populateInitial(self, omega, obs):
 
         # omega should be a list/tuple of two values - mean and variance
         self.particles[0] = np.random.normal(omega[0], omega[1], self.Np)
 
         # bias should be a list of lists/tuples
-        for i in xrange(self.dim):
-            self.particles[(i+1)] = np.random.normal(bias[i][0],
-                                                     bias[i][1], self.Np)
+        for j in xrange(self.Np):
+            for i in xrange(self.dim):
+                self.particles[i+1, j] =\
+                                         np.random.normal(obs[i]-self.particles[0, j],
+                                                          self.meas[i][1])
 
     def draw(self, weights, choices, count):
 
@@ -88,12 +90,11 @@ class ParticleFilter:
 
 def runFilter(obs, omega):
 
-    pf = ParticleFilter(50, obs.shape[0])
+    pf = ParticleFilter(100, obs.shape[0])
 
-    pf.populateInitial([omega[0], 0.05], [[obs[i, 0]-omega[0], 0.01]
-                                          for i in xrange(pf.dim)])
     pf.setProcessModel((0.0, 0.0085), [(0.0, 0.00015)]*pf.dim)
-    pf.setMeasNoise([(0.0, 0.001)]*pf.dim)
+    pf.setMeasNoise([(0.0, 0.005)]*pf.dim)
+    pf.populateInitial([0, 0.25], obs[:, 0])
 
     estimate = np.empty([obs.shape[1], obs.shape[0]+1])
     Z = obs.T
