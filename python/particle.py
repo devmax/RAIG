@@ -36,7 +36,7 @@ class ParticleFilter:
 
     def draw(self, weights, choices, count):
 
-        N = choices.shape[0]
+        N = choices.shape[1]
         w_max = max(weights)
         idx = np.random.randint(0, N-1)
         beta = 0
@@ -101,6 +101,7 @@ def runFilter(obs, omega):
     N = obs.shape[1]
 
     for i in xrange(N):
+
         pf.predict()
         pf.measure(Z[i])
 
