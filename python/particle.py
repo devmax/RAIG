@@ -87,30 +87,102 @@ class ParticleFilter:
         self.particles = np.copy(self.draw(self.w, self.particles, self.Np))
         self.w = np.ones(self.Np)*1./self.Np*1.
 
+    def run(self, obs, omega):
 
-def runFilter(obs, omega):
+        self.setProcessModel((0.0, 0.0085), [(0.0, 0.00015)]*self.dim)
+        self.setMeasNoise([(0.0, 0.005)]*self.dim)
+        self.populateInitial([omega[0], 0.01], obs[:, 0])
 
-    pf = ParticleFilter(100, obs.shape[0])
+        estimate = np.zeros([obs.shape[1]-1, obs.shape[0]+1])
+        Z = obs.T
 
-    pf.setProcessModel((0.0, 0.0085), [(0.0, 0.00015)]*pf.dim)
-    pf.setMeasNoise([(0.0, 0.005)]*pf.dim)
-    pf.populateInitial([0, 0.25], obs[:, 0])
+        N = obs.shape[1]
 
-    estimate = np.empty([obs.shape[1], obs.shape[0]+1])
-    Z = obs.T
+        for i in xrange(N-1):
+            self.predict()
+            self.measure(Z[i+1])
 
-    N = obs.shape[1]
+            estimate[i] = self.getEstimate()
 
-    for i in xrange(N):
+            self.resample()
 
-        pf.predict()
-        pf.measure(Z[i])
+        colors = ['r', 'b', 'y', 'c', 'm']
 
-        estimate[i] = pf.getEstimate()
+        m = np.copy(obs)
+        for i in xrange(m.shape[0]):
+            m[i] = m[i] - m[i, 0] + omega[0]
 
-        pf.resample()
+        m = np.mean(m, axis=0)
 
-    plt.plot(omega[:N], 'g')
-    plt.plot(estimate[:, 0], 'r')
+        plt.close()
+        plt.figure()
 
-    plt.show()
+        plt.subplot(211)
+        plt.plot(omega[:N], 'g', label="Ground truth")
+        plt.plot(estimate[:, 0], colors[0], label="PF Estimate")
+        plt.plot(m, 'b', label="Mean")
+        plt.title("Particle filter")
+        plt.legend()
+        plt.xlabel("Time")
+        plt.ylabel("Angular velocity")
+
+        plt.subplot(212)
+        plt.plot(omega[:N-1]-estimate[:, 0], 'r', label="Estimation Error")
+        plt.plot(omega[:N-1]-m[:-1], 'b', label="Mean estim. Error")
+        plt.title("Particle filter error")
+        plt.legend()
+        plt.xlabel("Time")
+        plt.ylabel("Error in rate estimation")
+
+        plt.show()
+
+    def compare(self, obs, omega):
+
+        plt.close()
+        plt.figure(1)
+
+        N = obs.shape[1]
+
+        plt.subplot(211)
+        plt.plot(omega[:N], 'g', label="Ground truth")
+
+        for num in xrange(1, obs.shape[0]+1):
+
+            self = ParticleFilter(500, num)
+
+            self.setProcessModel((0.0, 0.0085), [(0.0, 0.00015)]*self.dim)
+            self.setMeasNoise([(0.0, 0.005)]*self.dim)
+            self.populateInitial([0, 0.1], obs[:num, 0])
+
+            estimate = np.zeros([N-1, self.dim+1])
+            Z = obs[:num].T
+
+            for i in xrange(N-1):
+                self.predict()
+                self.measure(Z[i+1])
+
+                estimate[i] = self.getEstimate()
+
+                self.resample()
+
+            colors = ['r', 'b', 'y', 'c', 'm']
+
+            plt.subplot(211)
+            plt.plot(estimate[:, 0], colors[num], label="Estimate %d" % (num+1))
+
+            plt.subplot(212)
+            plt.plot(np.abs(omega[:N-1]-estimate[:, 0]), colors[num], label="Error %d" % (num+1))
+
+        plt.subplot(211)
+        plt.title("Particle filter")
+        plt.legend()
+        plt.xlabel("Time")
+        plt.ylabel("Angular velocity")
+
+        plt.subplot(212)
+        plt.title("Particle filter error")
+        plt.legend()
+        plt.xlabel("Time")
+        plt.ylabel("Error in rate estimation")
+
+        plt.show()
