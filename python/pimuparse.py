@@ -1,6 +1,7 @@
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+from pandas.tools.plotting import autocorrelation_plot
 
 import biasWindow
 
@@ -15,7 +16,7 @@ def normalize(angle):
     return angle
 
 
-def plot(g, PLOT):
+def getFiltered(g, filter):
 
     if type(g) == list:
         g = np.array(g)
@@ -35,18 +36,33 @@ def plot(g, PLOT):
         w1[i] = normalize(y1[i]-y1[i-1])/dt
         w2[i] = normalize(y2[i]-y2[i-1])/dt
 
-    w1f = biasWindow.centeredMean(w1)
-    w2f = biasWindow.centeredMean(w2)
+    if filter:
 
-    w1[0] = next(w1f)
-    w2[0] = next(w2f)
+        w1f = biasWindow.centeredMean(w1)
+        w2f = biasWindow.centeredMean(w2)
 
-    for i in xrange(1, t.shape[0]):
-        dt = (t[i]-t[i-1])
-        w1[i] = next(w1f)
-        w2[i] = next(w2f)
-        a1[i] = (w1[i]-w1[i-1])/dt
-        a2[i] = (w2[i]-w2[i-1])/dt
+        w1[0] = next(w1f)
+        w2[0] = next(w2f)
+
+        for i in xrange(1, t.shape[0]):
+            dt = (t[i]-t[i-1])
+            w1[i] = next(w1f)
+            w2[i] = next(w2f)
+            a1[i] = (w1[i]-w1[i-1])/dt
+            a2[i] = (w2[i]-w2[i-1])/dt
+    else:
+
+        for i in xrange(1, t.shape[0]):
+            dt = (t[i]-t[i-1])
+            a1[i] = (w1[i]-w1[i-1])/dt
+            a2[i] = (w2[i]-w2[i-1])/dt
+
+    return t, y1, y2, w1, w2, a1, a2
+
+
+def plot(g, PLOT):
+
+    t, y1, y2, w1, w2, a1, a2 = getFiltered(g, False)
 
     print "Theta: [", np.min(y1), ",", np.max(y1), "]", "[",
     print np.min(y2), ",", np.max(y2), "]"
@@ -57,8 +73,10 @@ def plot(g, PLOT):
     print "Alpha: [", np.mean(a1), ",", np.std(a1), "]", " [",
     print np.mean(a2), ",", np.std(a2), "]\n"
 
+    plt.close()
+
     if PLOT == 1:
-        plt.close()
+
         plt.figure(1)
         plt.plot(t, y1)
         plt.title("Yaw 1")
@@ -95,11 +113,7 @@ def plot(g, PLOT):
         plt.xlabel("Time (secs)")
         plt.ylabel("Angular acceleration (degrees/(sec^2))")
 
-        plt.show()
-
     elif PLOT == 2:
-
-        plt.close()
 
         plt.figure(1)
         plt.hist2d(w1, a1, bins=150, normed=True)
@@ -115,12 +129,36 @@ def plot(g, PLOT):
         plt.ylabel("Rate of change of yaw rate")
         plt.colorbar()
 
-        plt.show()
+    elif PLOT == 3:
+
+        plt.figure(1)
+        autocorrelation_plot(w1)
+
+        plt.figure(2)
+        autocorrelation_plot(w2)
+
+    elif PLOT == 4:
+
+        plt.figure(1)
+        plt.hist2d(w1[1:], w1[:-1], bins=150, normed=True)
+        plt.title("Yaw(t) vs Yaw(t-1) for gyro 1")
+        plt.xlabel("Yaw(t)")
+        plt.ylabel("Yaw(t-1)")
+        plt.colorbar()
+
+        plt.figure(2)
+        plt.hist2d(w2[1:], w2[:-1], bins=150, normed=True)
+        plt.title("Yaw(t) vs Yaw(t-1) for gyro 2")
+        plt.xlabel("Yaw(t)")
+        plt.ylabel("Yaw(t-1)")
+        plt.colorbar()
+
+    plt.show()
 
 
 def parse(files):
 
-    PLOT = 2
+    PLOT = 4
 
     obs = [list() for i in xrange(len(files))]
 
@@ -142,7 +180,7 @@ def parse(files):
                 obs[j].append([float(item) for item in row])
 
                 count += 1
-                if count % 2.0e6 == 0:
+                if count % 1.5e6 == 0:
                     print "Until observation ", count
 
                     plot(obs[j], PLOT)
