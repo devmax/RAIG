@@ -1,6 +1,7 @@
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+from pandas.tools.plotting import autocorrelation_plot
 from scipy import stats
 import statsmodels.api as sm
 
@@ -101,8 +102,10 @@ def plot(g, PLOT):
     print "Alpha: [", np.mean(a1), ",", np.std(a1), "]", " [",
     print np.mean(a2), ",", np.std(a2), "]\n"
 
+    plt.close()
+
     if PLOT == 1:
-        plt.close()
+
         plt.figure(1)
         plt.plot(t, y1)
         plt.title("Yaw 1")
@@ -140,8 +143,6 @@ def plot(g, PLOT):
         plt.ylabel("Angular acceleration (degrees/(sec^2))")
 
     elif PLOT == 2:
-
-        plt.close()
 
         plt.figure(1)
         plt.hist2d(w1, a1, bins=150, normed=True)
@@ -199,6 +200,7 @@ print "for second axis:"
 
 def parse(files):
 
+
     PLOT = 3
 
     obs = [list() for i in xrange(len(files))]
@@ -221,7 +223,9 @@ def parse(files):
                 obs[j].append([float(item) for item in row])
 
                 count += 1
+
                 if count % 4.0e6 == 0:
+
                     print "Until observation ", count
 
                     regress(obs[j])
