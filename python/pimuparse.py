@@ -2,6 +2,7 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
+import statsmodels.api as sm
 
 import biasWindow
 
@@ -12,10 +13,10 @@ def normalize(dy):
 
     while dy <= -extreme:
         dy += 2*extreme
-        print "Lower lim breached"
+        #print "Lower lim breached"
     while dy > extreme:
         dy -= 2*extreme
-        print "Higher lim breached"
+        #print "Higher lim breached"
 
     return dy
 
@@ -177,15 +178,23 @@ def plot(g, PLOT):
 
 def regress(g):
 
-    t, y1, y2, w1, w2, a1, a2 = getFiltered(g, True)
+    t, y1, y2, w1, w2, a1, a2 = getFiltered(g, False)
 
-    slope, intercept, r, p, err = stats.linregress(w1, a1)
+    print "for first axis:"
 
-    print slope, intercept, r, p, err
+    model = sm.OLS(a1, np.column_stack((w1, np.ones(a1.shape[0]))))
+    results = model.fit()
 
-    slope, intercept, r, p, err = stats.linregress(w2, a2)
+    print "Params are:", results.params
+    print results.summary()
 
-    print slope, intercept, r, p, err
+print "for second axis:"
+
+    model = sm.OLS(a2, np.column_stack((w2, np.ones(a2.shape[0]))))
+    results = model.fit()
+
+    print "Params are:", results.params
+    print results.summary()
 
 
 def parse(files):
@@ -212,18 +221,18 @@ def parse(files):
                 obs[j].append([float(item) for item in row])
 
                 count += 1
-                if count % 2.0e6 == 0:
+                if count % 4.0e6 == 0:
                     print "Until observation ", count
 
                     regress(obs[j])
-                    plot(obs[j], PLOT)
+                    #plot(obs[j], PLOT)
                     #compareLL(obs[j])
 
                     obs[j] = []
 
             print "Until observation ", count
             regress(obs[j])
-            plot(obs[j], PLOT)
+            #plot(obs[j], PLOT)
             #compareLL(obs[j])
 
             obs[j] = []
