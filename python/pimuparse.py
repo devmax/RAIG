@@ -163,16 +163,18 @@ def plot(g, PLOT):
         plt.close()
 
         plt.figure(1)
-        plt.scatter(w1, a1)
+        plt.scatter(w1[:-1], w1[1:])
         plt.title("Yaw rate change vs yaw rate(1)")
         plt.xlabel("Yaw rate")
         plt.ylabel("Rate of change of yaw rate")
+        plt.grid(b=True)
 
         plt.figure(2)
-        plt.scatter(w2, a2)
+        plt.scatter(w2[:-1], w2[1:])
         plt.title("Yaw rate change vs yaw rate(2)")
         plt.xlabel("Yaw rate")
         plt.ylabel("Rate of change of yaw rate")
+        plt.grid(b=True)
 
     plt.show()
 
@@ -183,15 +185,15 @@ def regress(g):
 
     print "for first axis:"
 
-    model = sm.OLS(a1, np.column_stack((w1, np.ones(a1.shape[0]))))
+    model = sm.OLS(w1[1:], np.column_stack((w1[:-1], np.ones(a1.shape[0]-1))))
     results = model.fit()
 
     print "Params are:", results.params
     print results.summary()
 
-print "for second axis:"
+    print "for second axis:"
 
-    model = sm.OLS(a2, np.column_stack((w2, np.ones(a2.shape[0]))))
+    model = sm.OLS(w2[1:], np.column_stack((w2[:-1], np.ones(a2.shape[0]-1))))
     results = model.fit()
 
     print "Params are:", results.params
@@ -199,7 +201,6 @@ print "for second axis:"
 
 
 def parse(files):
-
 
     PLOT = 3
 
@@ -224,18 +225,18 @@ def parse(files):
 
                 count += 1
 
-                if count % 4.0e6 == 0:
+                if count % 5.0e5 == 0:
 
                     print "Until observation ", count
 
-                    regress(obs[j])
-                    #plot(obs[j], PLOT)
+                    #regress(obs[j])
+                    plot(obs[j], PLOT)
                     #compareLL(obs[j])
 
                     obs[j] = []
 
-            print "Until observation ", count
-            regress(obs[j])
+            #print "Until observation ", count
+            #regress(obs[j])
             #plot(obs[j], PLOT)
             #compareLL(obs[j])
 
