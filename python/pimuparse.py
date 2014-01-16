@@ -2,18 +2,23 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from pandas.tools.plotting import autocorrelation_plot
+from scipy import stats
 
 import biasWindow
 
+extreme = 2147483648
 
-def normalize(angle):
 
-    while angle <= -180.:
-        angle += 360.
-    while angle > 180:
-        angle -= 360.
+def normalize(dy):
 
-    return angle
+    while dy <= -extreme:
+        dy += 2*extreme
+        print "Lower lim breached"
+    while dy > extreme:
+        dy -= 2*extreme
+        print "Higher lim breached"
+
+    return dy
 
 
 def getFiltered(g, filter):
@@ -21,8 +26,8 @@ def getFiltered(g, filter):
     if type(g) == list:
         g = np.array(g)
 
-    y1 = (g[:, 2]/1.0e6)
-    y2 = (g[:, 6]/1.0e6)
+    y1 = (g[:, 2])
+    y2 = (g[:, 6])
     t = g[:, 0]/1.0e6
 
     w1 = np.zeros_like(t)
@@ -33,11 +38,15 @@ def getFiltered(g, filter):
 
     for i in xrange(1, t.shape[0]):
         dt = (t[i]-t[i-1])
-        w1[i] = normalize(y1[i]-y1[i-1])/dt
-        w2[i] = normalize(y2[i]-y2[i-1])/dt
+        dy = [y1[i]-y1[i-1], y2[i]-y2[i-1]]
+
+        for j in xrange(len(dy)):
+            dy[j] = normalize(dy[j])/1.0e6
+
+        w1[i] = dy[0]/dt
+        w2[i] = dy[1]/dt
 
     if filter:
-
         w1f = biasWindow.centeredMean(w1)
         w2f = biasWindow.centeredMean(w2)
 
@@ -51,13 +60,32 @@ def getFiltered(g, filter):
             a1[i] = (w1[i]-w1[i-1])/dt
             a2[i] = (w2[i]-w2[i-1])/dt
     else:
-
         for i in xrange(1, t.shape[0]):
             dt = (t[i]-t[i-1])
             a1[i] = (w1[i]-w1[i-1])/dt
             a2[i] = (w2[i]-w2[i-1])/dt
 
     return t, y1, y2, w1, w2, a1, a2
+
+
+def compareLL(g):
+
+    t, y1, y2, w1, w2, a1, a2 = getFiltered(g, False)
+
+    t1 = 50.0
+    t2 = 20.0
+    diff1 = [0, 0]
+    diff2 = [0, 0]
+
+    for i in xrange(w1.shape[0]):
+        diff1[0] += (w1[i]*t1 - a1[i])**2
+        diff1[1] += (w2[i]*t1 - a2[i])**2
+
+        diff2[0] += (w1[i]*t2 - a1[i])**2
+        diff2[1] += (w2[i]*t2 - a2[i])**2
+
+    print "SSE for theta=50: [", diff1[0], ",", diff1[1], "]"
+    print "SSE for theta=20: [", diff2[0], ",", diff2[1], "]"
 
 
 def plot(g, PLOT):
@@ -131,34 +159,40 @@ def plot(g, PLOT):
 
     elif PLOT == 3:
 
-        plt.figure(1)
-        autocorrelation_plot(w1)
-
-        plt.figure(2)
-        autocorrelation_plot(w2)
-
-    elif PLOT == 4:
+        plt.close()
 
         plt.figure(1)
-        plt.hist2d(w1[1:], w1[:-1], bins=150, normed=True)
-        plt.title("Yaw(t) vs Yaw(t-1) for gyro 1")
-        plt.xlabel("Yaw(t)")
-        plt.ylabel("Yaw(t-1)")
-        plt.colorbar()
+        plt.scatter(w1, a1)
+        plt.title("Yaw rate change vs yaw rate(1)")
+        plt.xlabel("Yaw rate")
+        plt.ylabel("Rate of change of yaw rate")
 
         plt.figure(2)
-        plt.hist2d(w2[1:], w2[:-1], bins=150, normed=True)
-        plt.title("Yaw(t) vs Yaw(t-1) for gyro 2")
-        plt.xlabel("Yaw(t)")
-        plt.ylabel("Yaw(t-1)")
-        plt.colorbar()
+        plt.scatter(w2, a2)
+        plt.title("Yaw rate change vs yaw rate(2)")
+        plt.xlabel("Yaw rate")
+        plt.ylabel("Rate of change of yaw rate")
 
     plt.show()
 
 
+def regress(g):
+
+    t, y1, y2, w1, w2, a1, a2 = getFiltered(g, True)
+
+    slope, intercept, r, p, err = stats.linregress(w1, a1)
+
+    print slope, intercept, r, p, err
+
+    slope, intercept, r, p, err = stats.linregress(w2, a2)
+
+    print slope, intercept, r, p, err
+
+
 def parse(files):
 
-    PLOT = 4
+
+    PLOT = 3
 
     obs = [list() for i in xrange(len(files))]
 
@@ -183,12 +217,18 @@ def parse(files):
                 if count % 1.5e6 == 0:
                     print "Until observation ", count
 
+                    regress(obs[j])
                     plot(obs[j], PLOT)
+                    #compareLL(obs[j])
+
                     obs[j] = []
 
             print "Until observation ", count
+            regress(obs[j])
             plot(obs[j], PLOT)
-            # obs[j] = []
+            #compareLL(obs[j])
+
+            obs[j] = []
 
             print "\n"
 

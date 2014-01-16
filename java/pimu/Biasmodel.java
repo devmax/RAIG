@@ -22,7 +22,7 @@ public class Biasmodel
     public Biasmodel(int limit,int skip, int index, String file)
     {
 	reader=new pimureader(limit,skip,new int[]{index},new String[]{file});
-	//reader.filter(10);
+	reader.filter(10);
 
 	this.omega=reader.getOmega()[0][0];
 	this.alpha=reader.getAlpha()[0][0];
@@ -111,7 +111,7 @@ public class Biasmodel
 		    weighted += (double)(s.next()/total)*param.next();
 		}
 		System.out.println("\nWEIGHTED estimate: "+weighted);
-		System.out.println("*****************************************");
+		System.out.println("\n*****************************************\n");
 	    }
 	}
 
