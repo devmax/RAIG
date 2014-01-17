@@ -183,21 +183,32 @@ def regress(g):
 
     t, y1, y2, w1, w2, a1, a2 = getFiltered(g, False)
 
-    print "for first axis:"
+    print "First axis:"
 
     model = sm.OLS(w1[1:], np.column_stack((w1[:-1], np.ones(a1.shape[0]-1))))
     results = model.fit()
 
     print "Params are:", results.params
-    print results.summary()
+    print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
+    plt.figure()
+    plt.hist(results.resid, bins=500)
+    plt.title("Residual distribution")
 
-    print "for second axis:"
+    #print results.summary()
+
+    print "Second axis:"
 
     model = sm.OLS(w2[1:], np.column_stack((w2[:-1], np.ones(a2.shape[0]-1))))
     results = model.fit()
 
     print "Params are:", results.params
-    print results.summary()
+    print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
+    plt.figure()
+    plt.hist(results.resid, bins=500)
+    plt.title("Residual distribution")
+    #print results.summary()
+
+    plt.show()
 
 
 def parse(files):
@@ -225,15 +236,17 @@ def parse(files):
 
                 count += 1
 
-                if count % 5.0e5 == 0:
+                if count % 1.0e6 == 0:
 
                     print "Until observation ", count
 
                     #regress(obs[j])
-                    plot(obs[j], PLOT)
+                    #plot(obs[j], PLOT)
                     #compareLL(obs[j])
 
-                    obs[j] = []
+                    return obs[j]
+
+                    #obs[j] = []
 
             #print "Until observation ", count
             #regress(obs[j])
