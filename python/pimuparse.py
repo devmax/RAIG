@@ -236,7 +236,7 @@ def parse(files):
 
                 count += 1
 
-                if count % 3.e6 == 0:
+                if count % 3.0e6 == 0:
 
                     print "Until observation ", count
 
@@ -260,7 +260,7 @@ def parse(files):
     return obs
 
 if __name__ == "__main__":
-    files = ['../data/pimu_2.csv', '../data/pimu_1.csv',
+    files = ['../data/pimu_1.csv', '../data/pimu_2.csv',
              '../data/pimu_3.csv']
 
     #files = ['../data/pimu_2.csv']

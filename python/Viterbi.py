@@ -95,7 +95,7 @@ class Viterbi():
         for j in xrange(self.Nw):
             for i in xrange(self.Nw):
                 # probability that state j came from state i
-                self.Tw[i, j] = prob.pdf(abs(j-i)*self.resW)
+                self.Tw[i, j] = prob.pdf(abs(j-i)*self.resW)/100.
 
             #self.Tw[:, j] /= sum(self.Tw[:, j])
 
@@ -129,13 +129,16 @@ class Viterbi():
         p_ml = -1e10
         ml = None
 
+        if t > 1 and (self.Vs[0] == self.Vs[1]).all() is False:
+            print "Discrepancy at t=", t
+
         # looping over possible new states
         for i in xrange(self.Nw):
             p_max = -1e10
             s_max = None
             # looping over old states
             for j in xrange(self.Nw):
-                if self.Tw[j, i] <= 50. and self.Vs[0, j] <= 100.:
+                if self.Tw[j, i] < 50. and self.Vs[0, j] < 100.:
                     p = self.Vs[0, j] + self.Tw[j, i]
                     for sens in xrange(self.Ns):
                         bi = self.obs[sens, t-1] -\
@@ -148,6 +151,9 @@ class Viterbi():
                     if p > p_max:
                         p_max = p
                         s_max = j
+
+            if s_max is None:
+                print "(t, i, j) is ", t, i, j
 
             self.Vs[1, i] = p_max
             self.B[t, i] = s_max
@@ -166,12 +172,13 @@ class Viterbi():
         find most likely sequence of states given observations (obs)
         """
         for i in xrange(self.Nw):
-            p = self.getProb(self.states[i], 0., 0.05, self.resW)
+            p = self.getProb(self.states[i], 0., 0.5, self.resW)
             if p != 0:
                 self.Vs[0, i] = math.log(p)
             else:
                 self.Vs[0, i] = 1e2
 
+        self.Vs[1] = np.ones(self.Vs.shape[1])
         self.B[0] = np.arange(self.Nw, dtype=np.int32)
         self.Bp[0] = 0.
 
@@ -188,7 +195,7 @@ class Viterbi():
         """
         Run the viterbi algorithm, and plot data against GT
         """
-        plt.plot(self.Bpv, 'r')
+        plt.plot(self.Bp, 'r')
         plt.plot(self.omega[:self.Bp.shape[0]], 'g')
         plt.show()
 
