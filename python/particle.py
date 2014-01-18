@@ -57,13 +57,13 @@ class ParticleFilter:
 
     def predict(self):
 
-        self.particles[0] += np.random.normal(self.process[0][0],
-                                              self.process[0][1], self.Np)
+        for i in xrange(self.Np):
+            self.particles[0, i] += np.random.normal(self.process[0][0],
+                                                     self.process[0][1])
 
-        for i in xrange(self.dim):
-            self.particles[i+1] += np.random.normal(self.process[i+1][0],
-                                                    self.process[i+1][1],
-                                                    self.Np)
+            for j in xrange(self.dim):
+                self.particles[j+1, i] = self.process[j+1][0]*self.particles[j+1, i] +\
+                                         np.random.normal(0, self.process[j+1][1])
 
     def Gaussian(self, x, mu, sigma):
         return (1/(math.sqrt(2)*sigma))*math.exp((-0.5)*pow(((x-mu)/sigma), 2))
@@ -87,11 +87,11 @@ class ParticleFilter:
         self.particles = np.copy(self.draw(self.w, self.particles, self.Np))
         self.w = np.ones(self.Np)*1./self.Np*1.
 
-    def run(self, obs, omega):
+    def run(self, obs, omega, b):
 
-        self.setProcessModel((0.0, 0.0085), [(0.0, 0.00015)]*self.dim)
-        self.setMeasNoise([(0.0, 0.005)]*self.dim)
-        self.populateInitial([omega[0], 0.01], obs[:, 0])
+        self.setProcessModel((0.0, 0.0085), [(0.8, 0.09)]*self.dim)
+        self.setMeasNoise([(0.0, 0.000001)]*self.dim)
+        self.populateInitial([omega[0], 0.005], obs[:, 0])
 
         estimate = np.zeros([obs.shape[1]-1, obs.shape[0]+1])
         Z = obs.T
@@ -113,6 +113,7 @@ class ParticleFilter:
             m[i] = m[i] - m[i, 0] + omega[0]
 
         m = np.mean(m, axis=0)
+        MEAN = False
 
         plt.close()
         plt.figure()
@@ -120,7 +121,9 @@ class ParticleFilter:
         plt.subplot(211)
         plt.plot(omega[:N], 'g', label="Ground truth")
         plt.plot(estimate[:, 0], colors[0], label="PF Estimate")
-        plt.plot(m, 'b', label="Mean")
+        #plt.plot(b.T, label="Bias")
+        if MEAN:
+            plt.plot(m, 'b', label="Mean")
         plt.title("Particle filter")
         plt.legend()
         plt.xlabel("Time")
@@ -128,7 +131,8 @@ class ParticleFilter:
 
         plt.subplot(212)
         plt.plot(omega[:N-1]-estimate[:, 0], 'r', label="Estimation Error")
-        plt.plot(omega[:N-1]-m[:-1], 'b', label="Mean estim. Error")
+        if MEAN:
+            plt.plot(omega[:N-1]-m[:-1], 'b', label="Mean estim. Error")
         plt.title("Particle filter error")
         plt.legend()
         plt.xlabel("Time")

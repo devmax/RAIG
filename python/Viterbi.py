@@ -95,7 +95,7 @@ class Viterbi():
         for j in xrange(self.Nw):
             for i in xrange(self.Nw):
                 # probability that state j came from state i
-                self.Tw[i, j] = prob.pdf(abs(j-i)*self.resW)/100.
+                self.Tw[i, j] = prob.pdf(abs(j-i)*self.resW)
 
             #self.Tw[:, j] /= sum(self.Tw[:, j])
 
@@ -104,22 +104,22 @@ class Viterbi():
                 if p != 0:
                     self.Tw[i, j] = math.log(p)
                 else:
-                    self.Tw[i, j] = 10.
+                    self.Tw[i, j] = 50.
 
     def getProb(self, x, mu, sigma, res):
         return (0.5*(1+math.erf((x-mu+res)/(math.sqrt(2)*sigma))) -
                 0.5*(1+math.erf((x-mu-res)/(math.sqrt(2)*sigma))))
 
     def getPDF(self, x, mu, sigma):
-        return
-        (1/(math.sqrt(2)*sigma*np.pi))*math.exp((-0.5)*pow(((x-mu)/sigma),
+        return (1/(math.sqrt(2)*sigma*np.pi))*math.exp((-0.5)*pow(((x-mu)/sigma),
                                                         2))
 
     def getBiasTrans(self, init, final):
         """
         """
-        delB = final - init
-        prob = self.getProb(delB, 0, self.sigmaB, 0.00001)
+        #delB = final - init
+        #prob = self.getProb(delB, 0, self.sigmaB, 0.00001)
+        prob = self.getPDF(final, 0.8*init, 0.09)
         if prob != 0:
             return math.log(prob)
         else:
@@ -135,13 +135,13 @@ class Viterbi():
             s_max = None
             # looping over old states
             for j in xrange(self.Nw):
-                if self.Tw[j, i] <= 0. and self.Vs[0, j] <= 0.:
+                if self.Tw[j, i] <= 50. and self.Vs[0, j] <= 100.:
                     p = self.Vs[0, j] + self.Tw[j, i]
                     for sens in xrange(self.Ns):
                         bi = self.obs[sens, t-1] -\
-                            (self.states[j]+self.pRandom[j])
+                            (self.states[j])
                         bf = self.obs[sens, t] -\
-                            (self.states[i]+self.nRandom[i])
+                            (self.states[i])
 
                         p += self.getBiasTrans(bi, bf)
 
@@ -158,7 +158,6 @@ class Viterbi():
                 self.Bp[t] = self.states[ml]
 
         self.Vs[0] = np.copy(self.Vs[1])
-        self.pRandom = np.copy(self.nRandom)
 
         return ml
 
@@ -167,7 +166,7 @@ class Viterbi():
         find most likely sequence of states given observations (obs)
         """
         for i in xrange(self.Nw):
-            p = self.getProb(self.states[i], 0., 0.5, self.resW)
+            p = self.getProb(self.states[i], 0., 0.05, self.resW)
             if p != 0:
                 self.Vs[0, i] = math.log(p)
             else:
@@ -177,7 +176,6 @@ class Viterbi():
         self.Bp[0] = 0.
 
         for t in xrange(1, self.N):  # looping over time
-            self.nRandom = np.random.normal(0, 0.00015, self.Nw)
             ml = self.iterate(t)
 
         st = ml

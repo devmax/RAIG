@@ -191,7 +191,7 @@ def regress(g):
     print "Params are:", results.params
     print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
     plt.figure()
-    plt.hist(results.resid, bins=500)
+    plt.hist(results.resid, bins=200)
     plt.title("Residual distribution")
 
     #print results.summary()
@@ -204,7 +204,7 @@ def regress(g):
     print "Params are:", results.params
     print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
     plt.figure()
-    plt.hist(results.resid, bins=500)
+    plt.hist(results.resid, bins=200)
     plt.title("Residual distribution")
     #print results.summary()
 
@@ -236,17 +236,17 @@ def parse(files):
 
                 count += 1
 
-                if count % 1.0e6 == 0:
+                if count % 3.e6 == 0:
 
                     print "Until observation ", count
 
-                    #regress(obs[j])
+                    regress(obs[j])
                     #plot(obs[j], PLOT)
                     #compareLL(obs[j])
 
-                    return obs[j]
+                    #return obs[j]
 
-                    #obs[j] = []
+                    obs[j] = []
 
             #print "Until observation ", count
             #regress(obs[j])
@@ -260,7 +260,7 @@ def parse(files):
     return obs
 
 if __name__ == "__main__":
-    files = ['../data/pimu_1.csv', '../data/pimu_2.csv',
+    files = ['../data/pimu_2.csv', '../data/pimu_1.csv',
              '../data/pimu_3.csv']
 
     #files = ['../data/pimu_2.csv']
