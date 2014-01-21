@@ -29,12 +29,10 @@ class ParticleFilter:
         # omega should be a list/tuple of two values - mean and variance
         self.particles[0] = np.random.normal(omega[0], omega[1], self.Np)
 
-        # bias should be a list of lists/tuples
-        for j in xrange(self.Np):
-            for i in xrange(self.dim):
-                self.particles[i+1, j] =\
-                                         np.random.normal(obs[i]-self.particles[0, j],
-                                                          self.meas[i][1])
+        Z = obs.reshape(self.dim, 1)
+
+        for i in xrange(self.dim):
+            self.particles[i+1] = np.random.normal(Z[i]-self.particles[i+1], self.meas[i][1])
 
     def draw(self, weights, choices, count):
 
@@ -57,26 +55,28 @@ class ParticleFilter:
 
     def predict(self):
 
-        for i in xrange(self.Np):
-            self.particles[0, i] += np.random.normal(self.process[0][0],
-                                                     self.process[0][1])
+        self.particles[0] += np.random.normal(self.process[0][0], self.process[0][1],
+                                              self.Np)
 
-            for j in xrange(self.dim):
-                self.particles[j+1, i] = self.process[j+1][0]*self.particles[j+1, i] +\
-                                         np.random.normal(0, self.process[j+1][1])
+        for j in xrange(self.dim):
+            self.particles[j+1] *= self.process[j+1][0]
+            self.particles[j+1] += np.random.normal(0, self.process[j+1][1], self.Np)
 
     def Gaussian(self, x, mu, sigma):
-        return (1/(math.sqrt(2)*sigma))*math.exp((-0.5)*pow(((x-mu)/sigma), 2))
+        try:
+            return (1/(math.sqrt(2)*sigma))*math.exp((-0.5)*pow(((x-mu)/sigma), 2))
+        except OverflowError:
+            print "(", x, ";", mu, ",", sigma, ")"
 
     def measure(self, Z):
 
         assert Z.shape[0] == self.dim
 
-        for j in xrange(self.Np):
-            for i in xrange(self.dim):
-                x = Z[i]-self.particles[0, j]-self.particles[i+1, j]
-                p = self.Gaussian(x, self.meas[i][0], self.meas[i][1])
-                self.w[j] = self.w[j]*p
+        g = np.vectorize(self.Gaussian)
+
+        for i in xrange(self.dim):
+            p = g(Z[i], self.particles[0]+self.particles[i+1], self.meas[i][1])
+            self.w = np.dot(self.w, p)
 
     def getEstimate(self):
 
@@ -85,12 +85,12 @@ class ParticleFilter:
     def resample(self):
 
         self.particles = np.copy(self.draw(self.w, self.particles, self.Np))
-        self.w = np.ones(self.Np)*1./self.Np*1.
+        self.w = np.ones(self.Np)
 
     def run(self, obs, omega, b):
 
         self.setProcessModel((0.0, 0.0085), [(0.8, 0.09)]*self.dim)
-        self.setMeasNoise([(0.0, 0.000001)]*self.dim)
+        self.setMeasNoise([(0.0, 0.009)]*self.dim)
         self.populateInitial([omega[0], 0.005], obs[:, 0])
 
         estimate = np.zeros([obs.shape[1]-1, obs.shape[0]+1])

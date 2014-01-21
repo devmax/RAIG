@@ -53,17 +53,8 @@ class Viterbi():
         self.N = self.obs.shape[1]
         self.Ns = self.obs.shape[0]
 
-        minw = 1e10
-        maxw = -1e10
-
-        for i in xrange(self.Ns):
-            val = np.amin(self.obs[i, :])
-            if val < minw:
-                minw = val
-
-            val = np.amax(self.obs[i, :])
-            if val > maxw:
-                maxw = val
+        minw = np.amin(self.obs)
+        maxw = np.amax(self.obs)
 
         lim = max((minw*-1), maxw)
         self.lim = lim
@@ -73,87 +64,62 @@ class Viterbi():
 
         self.Nw = self.states.shape[0]
 
-        self.Tw = np.ones([self.Nw, self.Nw])*10.
+        self.Vs = np.zeros([2, self.Nw])
 
-        self.V = np.ones([self.N, self.Nw])*10.
-        self.Vs = np.ones([2, self.Nw])*10.
-        self.B = np.ones([self.N, self.Nw], dtype=np.int32)*-1
+        self.Tw = np.zeros([self.Nw, self.Nw])
 
-        self.Bp = np.zeros(self.N)
-        self.Bpv = np.zeros(self.N)
-
-        self.pRandom = np.zeros(self.Nw)
-        self.nRandom = np.zeros(self.Nw)
+        self.reinitialize()
+        self.createMatrices()
 
     def createMatrices(self):
         """
         Create state transition matrices, and observation matrices
         """
-
-        prob = stats.norm(0, self.sigmaW)
-
         for j in xrange(self.Nw):
-            for i in xrange(self.Nw):
-                # probability that state j came from state i
-                self.Tw[i, j] = prob.pdf(abs(j-i)*self.resW)/100.
+            lp = np.vectorize(self.logProb)
 
-            #self.Tw[:, j] /= sum(self.Tw[:, j])
-
-            for i in xrange(self.Nw):
-                p = self.Tw[i, j]
-                if p != 0:
-                    self.Tw[i, j] = math.log(p)
-                else:
-                    self.Tw[i, j] = 50.
+            self.Tw[:, j] = lp(np.abs(self.states[j]-self.states), 0,
+                               self.sigmaW)
 
     def getProb(self, x, mu, sigma, res):
         return (0.5*(1+math.erf((x-mu+res)/(math.sqrt(2)*sigma))) -
                 0.5*(1+math.erf((x-mu-res)/(math.sqrt(2)*sigma))))
 
-    def getPDF(self, x, mu, sigma):
-        return (1/(math.sqrt(2)*sigma*np.pi))*math.exp((-0.5)*pow(((x-mu)/sigma),
-                                                        2))
+    def logProb(self, x, mu, sigma):
+
+        return -(np.log(sigma)+0.5*((x-mu)/sigma)**2)
 
     def getBiasTrans(self, init, final):
         """
         """
         #delB = final - init
         #prob = self.getProb(delB, 0, self.sigmaB, 0.00001)
-        prob = self.getPDF(final, 0.8*init, 0.09)
-        if prob != 0:
-            return math.log(prob)
-        else:
-            return -9999
+        return self.logProb(final, 0.8*init, 0.09)
 
     def iterate(self, t):
         p_ml = -1e10
         ml = None
 
-        if t > 1 and (self.Vs[0] == self.Vs[1]).all() is False:
-            print "Discrepancy at t=", t
+        bias = np.vectorize(self.getBiasTrans)
 
         # looping over possible new states
         for i in xrange(self.Nw):
             p_max = -1e10
             s_max = None
-            # looping over old states
-            for j in xrange(self.Nw):
-                if self.Tw[j, i] < 50. and self.Vs[0, j] < 100.:
-                    p = self.Vs[0, j] + self.Tw[j, i]
-                    for sens in xrange(self.Ns):
-                        bi = self.obs[sens, t-1] -\
-                            (self.states[j])
-                        bf = self.obs[sens, t] -\
-                            (self.states[i])
 
-                        p += self.getBiasTrans(bi, bf)
+            p = self.Vs[0] + self.Tw[:, i]
 
-                    if p > p_max:
-                        p_max = p
-                        s_max = j
+            for sens in xrange(self.Ns):
+                bi = self.obs[sens, t-1]-self.states
+                bf = self.obs[sens, t]-self.states[i]
+
+                p += bias(bi, bf)
+
+            p_max = np.max(p)
+            s_max = np.argmax(p)
 
             if s_max is None:
-                print "(t, i, j) is ", t, i, j
+                print "(t, i) is ", t, i
 
             self.Vs[1, i] = p_max
             self.B[t, i] = s_max
@@ -167,20 +133,22 @@ class Viterbi():
 
         return ml
 
+    def reinitialize(self):
+
+        lp = np.vectorize(self.logProb)
+        self.Vs[0] = lp(self.states, 0., 0.5)
+
+        self.Vs[1] = np.ones(self.Vs.shape[1])*100.
+        self.B = np.ones([self.N, self.Nw], dtype=np.int32)*-1
+        self.B[0] = np.arange(self.Nw, dtype=np.int32)
+        self.Bp = np.zeros(self.N)
+        self.Bpv = np.zeros(self.N)
+
     def findSequence(self):
         """
         find most likely sequence of states given observations (obs)
         """
-        for i in xrange(self.Nw):
-            p = self.getProb(self.states[i], 0., 0.5, self.resW)
-            if p != 0:
-                self.Vs[0, i] = math.log(p)
-            else:
-                self.Vs[0, i] = 1e2
-
-        self.Vs[1] = np.ones(self.Vs.shape[1])
-        self.B[0] = np.arange(self.Nw, dtype=np.int32)
-        self.Bp[0] = 0.
+        self.reinitialize()
 
         for t in xrange(1, self.N):  # looping over time
             ml = self.iterate(t)
@@ -195,16 +163,23 @@ class Viterbi():
         """
         Run the viterbi algorithm, and plot data against GT
         """
-        plt.plot(self.Bp, 'r')
-        plt.plot(self.omega[:self.Bp.shape[0]], 'g')
+
+        plt.subplot(211)
+
+        plt.plot(self.Bp, 'r', label="Estimate")
+        plt.plot(self.omega[:self.Bp.shape[0]], 'g', label="Ground truth")
+        plt.xlabel("Time")
+        plt.ylabel("Rate")
+
+        plt.subplot(212)
+        plt.plot(self.Bp-self.omega[:self.Bp.shape[0]], 'b', label="Error")
+        plt.xlabel("Time")
+        plt.ylabel("Rate Error")
+
         plt.show()
 
     def run(self):
 
-        self.createMatrices()
         self.findSequence()
 
-        plt.plot(self.Bpv, 'r')
-        plt.plot(self.omega, 'g')
-
-        plt.show()
+        self.plot()

@@ -20,45 +20,25 @@ cdef extern from "math.h":
 cdef inline double double_max(double a, double b): return a if a >= b else b
 cdef inline double double_min(double a, double b): return a if a <= b else b
 
-cpdef double getPDF(double sqrt_tpi, double x, double mu, double sigma):
-    return (1/(sqrt_tpi*sigma))*exp((-0.5)*pow(((x-mu)/sigma), 2))
-
-cpdef double getProb(double x, double mu, double sigma, double res):
-    return (0.5*(1+erf((x-mu+res)/(sqrt(2)*sigma))) -
-            0.5*(1+erf((x-mu-res)/(sqrt(2)*sigma))))
+cpdef double logProb(double x, double mu, double sigma):
+    return -(log(sigma)+0.5*(((x-mu)/sigma)**2))
 
 
 @cython.boundscheck(False)
 cpdef createMatrices(int Nw, double resW, double sigmaW):
 
-    cdef double sqrt_tpi = sqrt(2*math.pi)
-
     cdef np.ndarray[np.double_t, ndim = 2] Tw = np.empty([Nw, Nw])
 
     for j in xrange(Nw):
         for i in xrange(Nw):
-            # probability that state j came from state i
-            Tw[<unsigned int>i, <unsigned int>j] = getPDF(sqrt_tpi,
-                                                          abs(j-i)*resW,
-                                                          0, sigmaW)
-        Tw[:, j] /= 100. # sum(Tw[:, j])
-        for i in range(Nw):
-            p = Tw[<unsigned int>i, <unsigned int>j]
-            if p != 0:
-                Tw[<unsigned int>i, <unsigned int>j] = log(p)
-            else:
-                Tw[<unsigned int>i, <unsigned int>j] = 10.0
+            # log-probability that state j came from state i
+            Tw[i, j] = logProb(abs(j-i)*resW, 0, sigmaW)
+
     return Tw
 
 cpdef double getBiasTrans(double init, double final, double sigmaB):
 
-    cdef double delB = final - init
-    cdef double prob = getProb(delB, 0, sigmaB, 0.00001)
-
-    if prob != 0:
-        return log(prob)
-    else:
-        return -9999
+    return logProb(final, 0.8*init, sigmaB)
 
 
 @cython.boundscheck(False)
@@ -70,27 +50,16 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     cdef int N = obs.shape[1]
     cdef int Ns = obs.shape[0]
 
-    cdef np.ndarray[np.double_t, ndim = 2] V = np.ones([2, Nw])*(10.0)
+    cdef np.ndarray[np.double_t, ndim = 2] V = np.ones([2, Nw])
     cdef np.ndarray[np.int_t, ndim = 2] B = np.empty([N, Nw], dtype=np.int)
 
     cdef np.ndarray[np.double_t, ndim = 1] Bp = np.zeros(N, dtype=np.double)
 
     cdef np.ndarray[np.double_t, ndim = 2] Tw = createMatrices(Nw,
                                                                resW, sigmaW)
-    cdef np.ndarray[np.double_t, ndim =1] pRandom = np.zeros(Nw,
-                                                             dtype=np.double)
-    cdef np.ndarray[np.double_t, ndim =1] nRandom = np.zeros(Nw,
-                                                             dtype=np.double)
-
-    cdef double sqrt_tpi = sqrt(2*math.pi)
-    cdef double pr
 
     for i in xrange(Nw):
-        pr = getProb(states[i], 0, 0.5, resW)
-        if pr != 0:
-            V[0, i] = log(pr)
-        else:
-            V[0, i] = 1e2
+        V[0, i] = logProb(states[i], 0., 0.5)
 
     B[0] = np.arange(Nw, dtype=np.int)
     Bp[0] = 0.
@@ -105,26 +74,21 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
         if t % 1000 == 0:
             print "Observation number: ", t
         p_ml = -1e1000
-        nRandom = np.random.normal(0, 0.000001, Nw)
         for i in xrange(Nw):  # looping over possible new states
             p_max = -1e1000
             # looping over old states
             for j in xrange(Nw):
-                if Tw[< unsigned int > j, < unsigned int > i] <=\
-                0. and V[0, < unsigned int > j] <= 0:
-                    p = V[0, < unsigned int > j]\
-                    + Tw[< unsigned int > j, < unsigned int > i]
-                    for sens in range(Ns):
-                        bi = obs[< unsigned int > sens, < unsigned int
-                                 > (t-1)] - (states[< unsigned int >
-                                                    j]+pRandom[j])
-                        bf = obs[< unsigned int > sens, < unsigned int
-                                 > t] - (states[< unsigned int > i]+nRandom[i])
-                        p += getBiasTrans(bi, bf, sigmaB)
+                p = V[0, < unsigned int > j] + Tw[< unsigned int > j, < unsigned int > i]
+                for sens in range(Ns):
+                    bi = obs[< unsigned int > sens, < unsigned int
+                             > (t-1)] - states[< unsigned int >
+                                               j]
+                    bf = obs[< unsigned int > sens, < unsigned int > t] - states[< unsigned int > i]
+                    p += getBiasTrans(bi, bf, sigmaB)
 
-                    if p > p_max:
-                        p_max = p
-                        s_max = j
+                if p > p_max:
+                    p_max = p
+                    s_max = j
 
             V[1, < unsigned int > i] = p_max
             B[< unsigned int > t, < unsigned int > i] = s_max
@@ -133,8 +97,8 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
                 p_ml = p_max
                 ml = i
                 Bp[< unsigned int > t] = states[< unsigned int > ml]
+
         V[0] = np.copy(V[1])
-        pRandom = np.copy(nRandom)
 
     cdef np.ndarray[np.double_t, ndim = 1] Bpv = np.zeros(N, dtype=np.double)
 
@@ -145,7 +109,7 @@ cpdef findSequence(double resW, double sigmaW, double sigmaB,
     return Bp, Bpv, V, B
 
 
-def estimate(obs, omega, resW, sigmaB):
+def estimate(obs, omega, resW=0.005, sigmaB=0.09):
 
     N = obs.shape[1]
     omega = omega[:N]
@@ -156,19 +120,7 @@ def estimate(obs, omega, resW, sigmaB):
 
     Ns = obs.shape[0]
 
-    minw = 1e10
-    maxw = -1e10
-
-    for i in xrange(Ns):
-        val = np.amin(obs[i, :])
-        if val < minw:
-            minw = val
-
-        val = np.amax(obs[i, :])
-        if val > maxw:
-            maxw = val
-
-    lim = double_max((minw*-1), maxw)
+    lim = double_max((np.min(obs)*-1), np.max(obs))
     states = np.concatenate((np.arange(0, -lim, -resW)[:0:-1],
                              np.arange(0, lim, resW)), 1)
 

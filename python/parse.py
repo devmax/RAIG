@@ -10,35 +10,38 @@ def separate(files):
     for j in range(len(files)):
         with open(files[j]) as datafile:
             obs = csv.reader(datafile)
-            obs.next()
+            #obs.next()
             for sublist in obs:
-                data[j].append([float(item) for item in sublist])
+                data[j].append([(item) for item in sublist])
 
     print "Shape is ", len(data), "x", len(data[0])
 
     return data
 
 if __name__ == "__main__":
-    files = ['big0.csv', 'big1.csv', 'big2.csv', 'big3.csv']
+    files = ['gyrolog.txt']
     data = separate(files)
 
-    for i in xrange(len(files)):
-        g = np.array(data[i])
+    PLOT = False
 
-        dyaw = g[:, 2]*0.0001309
-        t = g[:, -1]/1000.0
-        t = t - t[0]
+    if PLOT:
+        for i in xrange(len(files)):
+            g = np.array(data[i])
 
-        yaw = np.zeros_like(dyaw)
+            dyaw = g[:, 2]*0.0001309
+            t = g[:, -1]/1000.0
+            t = t - t[0]
 
-        for i in xrange(1, dyaw.shape[0]):
-            yaw[i] = yaw[i-1] + (t[i]-t[i-1])*dyaw[i-1]
+            yaw = np.zeros_like(dyaw)
 
-        yaw = (yaw*180/np.pi) % 360
+            for i in xrange(1, dyaw.shape[0]):
+                yaw[i] = yaw[i-1] + (t[i]-t[i-1])*dyaw[i-1]
 
-        plt.figure()
-        plt.plot(t, dyaw)
+            yaw = (yaw*180/np.pi) % 360
 
-        plt.figure()
-        plt.plot(t, yaw)
-        plt.show()
+            plt.figure()
+            plt.plot(t, dyaw)
+
+            plt.figure()
+            plt.plot(t, yaw)
+            plt.show()

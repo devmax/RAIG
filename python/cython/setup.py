@@ -4,7 +4,7 @@ import numpy
 
 
 setup(
-    name = 'viterbi app',
+    name = 'PF app',
     ext_modules = cythonize("Viterbi_cython.pyx"),
 
     include_dirs=[numpy.get_include()]
