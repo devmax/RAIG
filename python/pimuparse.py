@@ -179,34 +179,85 @@ def plot(g, PLOT):
     plt.show()
 
 
-def regress(g):
+def regress(g, PLOT):
 
     t, y1, y2, w1, w2, a1, a2 = getFiltered(g, False)
 
+    n = w1.shape[0] 
+    mud = np.zeros(n)
+    maxd = np.zeros(n)
+    mind = np.zeros(n)
+    muw = np.zeros(n)
+    maxw = np.zeros(n)
+    minw = np.zeros(n)
+    d = np.zeros(n)
+
     print "First axis:"
 
-    model = sm.OLS(w1[1:], np.column_stack((w1[:-1], np.ones(a1.shape[0]-1))))
+    for i in xrange(2, n):
+        w = w1[max(0, i-5):i] 
+        diff = np.diff(w)
+
+        mud[i] = np.mean(diff)
+        maxd[i] = np.max(diff)
+        mind[i] = np.min(diff)
+
+        muw[i] = np.mean(w)
+        maxw[i] = np.max(w)
+        minw[i] = np.min(w)
+
+        d[i] = w[-1]-w[0]
+
+    model = sm.OLS(a1[2:], np.column_stack((w1[1:-1], mud[2:],
+                                        )))
     results = model.fit()
+    print results.summary()
 
-    print "Params are:", results.params
+    #print "Params are:", results.params
     print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
-    plt.figure()
-    plt.hist(results.resid, bins=200)
-    plt.title("Residual distribution")
 
-    #print results.summary()
+    if PLOT != 0:
+        plt.figure()
+        plt.hist(results.resid, bins=200)
+        plt.title("Residual distribution")
 
     print "Second axis:"
 
-    model = sm.OLS(w2[1:], np.column_stack((w2[:-1], np.ones(a2.shape[0]-1))))
-    results = model.fit()
+    n = w2.shape[0] 
+    mud = np.zeros(n)
+    maxd = np.zeros(n)
+    mind = np.zeros(n)
+    muw = np.zeros(n)
+    maxw = np.zeros(n)
+    minw = np.zeros(n)
+    d = np.zeros(n)
 
-    print "Params are:", results.params
+    for i in xrange(2, n):
+        w = w2[max(0, i-5):i] 
+        diff = np.diff(w)
+
+        mud[i] = np.mean(diff)
+        maxd[i] = np.max(diff)
+        mind[i] = np.min(diff)
+
+        muw[i] = np.mean(w)
+        maxw[i] = np.max(w)
+        minw[i] = np.min(w)
+
+        d[i] = w[-1]-w[0]
+
+    model = sm.OLS(a2[2:], np.column_stack((w2[1:-1], mud[2:],
+                                        )))
+    results = model.fit()
+    print results.summary()
+
+    #print "Params are:", results.params
     print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
-    plt.figure()
-    plt.hist(results.resid, bins=200)
-    plt.title("Residual distribution")
-    #print results.summary()
+    
+    if PLOT != 0:
+        plt.figure()
+        plt.hist(results.resid, bins=200)
+        plt.title("Residual distribution")
 
     plt.show()
 
@@ -240,7 +291,7 @@ def parse(files):
 
                     print "Until observation ", count
 
-                    regress(obs[j])
+                    regress(obs[j], 0)
                     #plot(obs[j], PLOT)
                     #compareLL(obs[j])
 
