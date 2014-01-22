@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 from pandas.tools.plotting import autocorrelation_plot
 from scipy import stats
 import statsmodels.api as sm
+import itertools
 
 import biasWindow
+biasWindow.windowSize = 35
 
 extreme = 2147483648
 
@@ -27,244 +29,160 @@ def getFiltered(g, filter):
     if type(g) == list:
         g = np.array(g)
 
-    y1 = (g[:, 2])
-    y2 = (g[:, 6])
+    w = []
+    a = []
+
+    y = [g[:, 2], g[:, 6]]
     t = g[:, 0]/1.0e6
 
-    w1 = np.zeros_like(t)
-    w2 = np.zeros_like(t)
+    dt = np.diff(t)
 
-    a1 = np.zeros_like(t)
-    a2 = np.zeros_like(t)
+    clamp = np.vectorize(normalize)
 
-    for i in xrange(1, t.shape[0]):
-        dt = (t[i]-t[i-1])
-        dy = [y1[i]-y1[i-1], y2[i]-y2[i-1]]
+    plt.close("all")
 
-        for j in xrange(len(dy)):
-            dy[j] = normalize(dy[j])/1.0e6
+    for i in xrange(len(y)):
+        w.append(np.zeros_like(t))
+        a.append(np.zeros_like(t))
 
-        w1[i] = dy[0]/dt
-        w2[i] = dy[1]/dt
+        dy = np.zeros_like(t)
 
-    if filter:
-        w1f = biasWindow.centeredMean(w1)
-        w2f = biasWindow.centeredMean(w2)
+        dy[1:] = clamp(np.diff(y[i]))/1.0e6
 
-        w1[0] = next(w1f)
-        w2[0] = next(w2f)
+        w[i][1:] = np.divide(dy[1:], dt)
 
-        for i in xrange(1, t.shape[0]):
-            dt = (t[i]-t[i-1])
-            w1[i] = next(w1f)
-            w2[i] = next(w2f)
-            a1[i] = (w1[i]-w1[i-1])/dt
-            a2[i] = (w2[i]-w2[i-1])/dt
-    else:
-        for i in xrange(1, t.shape[0]):
-            dt = (t[i]-t[i-1])
-            a1[i] = (w1[i]-w1[i-1])/dt
-            a2[i] = (w2[i]-w2[i-1])/dt
+        if filter:
 
-    return t, y1, y2, w1, w2, a1, a2
+            w_raw = np.copy(w[i])
+            w[i] =\
+                   np.array(list(itertools.islice(biasWindow.centeredMean(w_raw),
+                                                  w_raw.shape[0])))
 
+            noise = w_raw - w[i]
+            print "Noise for gyro ", (i+1)
+            print "[", np.std(noise), ",", np.mean(noise), "]"
 
-def compareLL(g):
+            plt.figure(i+1)
+            plt.hist(noise, bins=200)
+            plt.title("Noise distribution for gyro %d" % (i+1))
 
-    t, y1, y2, w1, w2, a1, a2 = getFiltered(g, False)
+        a[i][1:] = np.divide(np.diff(w[i]), dt)
 
-    t1 = 50.0
-    t2 = 20.0
-    diff1 = [0, 0]
-    diff2 = [0, 0]
+    plt.show()
 
-    for i in xrange(w1.shape[0]):
-        diff1[0] += (w1[i]*t1 - a1[i])**2
-        diff1[1] += (w2[i]*t1 - a2[i])**2
-
-        diff2[0] += (w1[i]*t2 - a1[i])**2
-        diff2[1] += (w2[i]*t2 - a2[i])**2
-
-    print "SSE for theta=50: [", diff1[0], ",", diff1[1], "]"
-    print "SSE for theta=20: [", diff2[0], ",", diff2[1], "]"
+    return t, y, w, a
 
 
 def plot(g, PLOT):
 
-    t, y1, y2, w1, w2, a1, a2 = getFiltered(g, False)
+    t, y, w, a = getFiltered(g, True)
 
-    print "Theta: [", np.min(y1), ",", np.max(y1), "]", "[",
-    print np.min(y2), ",", np.max(y2), "]"
+    plt.close("all")
 
-    print "Omega: [", np.mean(w1), ",", np.std(w1), "]", " [",
-    print np.mean(w2), ",", np.std(w2), "]\n"
+    for i in xrange(len(y)):
 
-    print "Alpha: [", np.mean(a1), ",", np.std(a1), "]", " [",
-    print np.mean(a2), ",", np.std(a2), "]\n"
+        print "Gryo # ", (i+1)
 
-    plt.close()
+        print "Theta: [", np.min(y[i]), ",", np.max(y[i]), "]"
 
-    if PLOT == 1:
+        print "Omega: [", np.mean(w[i]), ",", np.std(w[i]), "]"
 
-        plt.figure(1)
-        plt.plot(t, y1)
-        plt.title("Yaw 1")
-        plt.xlabel("Time (secs)")
-        plt.ylabel("Yaw (degrees)")
+        print "Alpha: [", np.mean(a[i]), ",", np.std(a[i]), "]"
 
-        plt.figure(2)
-        plt.plot(t, y2)
-        plt.title("Yaw 2")
-        plt.xlabel("Time (secs)")
-        plt.ylabel("Yaw (degrees)")
+        if PLOT == 1:
 
-        plt.figure(3)
-        plt.plot(t, w1)
-        plt.title("Yaw rate 1")
-        plt.xlabel("Time (secs)")
-        plt.ylabel("Yaw rate (degrees/sec)")
+            if False:
+                plt.figure(i*3 + 1)
+                plt.plot(t, y[i])
+                plt.title("Yaw %d" % (i+1))
+                plt.xlabel("Time (secs)")
+                plt.ylabel("Yaw (degrees)")
 
-        plt.figure(4)
-        plt.plot(t, w2)
-        plt.title("Yaw rate 2")
-        plt.xlabel("Time (secs)")
-        plt.ylabel("Yaw rate (degrees/sec)")
+            plt.figure(i*3 + 3)
+            plt.plot(t, a[i])
+            plt.title("Angular acceleration %d" % (i+1))
+            plt.xlabel("Time (secs)")
+            plt.ylabel("Angular acceleration (degrees/(sec^2))")
 
-        plt.figure(5)
-        plt.plot(t, a1)
-        plt.title("Angular acceleration 1")
-        plt.xlabel("Time (secs)")
-        plt.ylabel("Angular acceleration (degrees/(sec^2))")
+            plt.figure(i*3 + 2)
+            plt.plot(t, w[i])
+            plt.title("Yaw rate %d" % (i+1))
+            plt.xlabel("Time (secs)")
+            plt.ylabel("Yaw rate (degrees/sec)")
 
-        plt.figure(6)
-        plt.plot(t, a2)
-        plt.title("Angular acceleration 2")
-        plt.xlabel("Time (secs)")
-        plt.ylabel("Angular acceleration (degrees/(sec^2))")
+        elif PLOT == 2:
 
-    elif PLOT == 2:
+            plt.figure(i*1 + 1)
+            plt.hist2d(w[i][:-1], a[i][1:], bins=150, normed=True)
+            plt.title("Yaw rate change vs yaw rate for gyro %d" % (i+1))
+            plt.xlabel("Yaw rate")
+            plt.ylabel("Rate of change of yaw rate")
+            plt.colorbar()
 
-        plt.figure(1)
-        plt.hist2d(w1, a1, bins=150, normed=True)
-        plt.title("Yaw rate change vs yaw rate(1)")
-        plt.xlabel("Yaw rate")
-        plt.ylabel("Rate of change of yaw rate")
-        plt.colorbar()
+        elif PLOT == 3:
 
-        plt.figure(2)
-        plt.hist2d(w2, a2, bins=150, normed=True)
-        plt.title("Yaw rate change vs yaw rate(2)")
-        plt.xlabel("Yaw rate")
-        plt.ylabel("Rate of change of yaw rate")
-        plt.colorbar()
-
-    elif PLOT == 3:
-
-        plt.close()
-
-        plt.figure(1)
-        plt.scatter(w1[:-1], w1[1:])
-        plt.title("Yaw rate change vs yaw rate(1)")
-        plt.xlabel("Yaw rate")
-        plt.ylabel("Rate of change of yaw rate")
-        plt.grid(b=True)
-
-        plt.figure(2)
-        plt.scatter(w2[:-1], w2[1:])
-        plt.title("Yaw rate change vs yaw rate(2)")
-        plt.xlabel("Yaw rate")
-        plt.ylabel("Rate of change of yaw rate")
-        plt.grid(b=True)
+            plt.figure(i*1 + 1)
+            plt.scatter(a[i][1:], w[i][:-1])
+            plt.title("Yaw rate change vs yaw rate %d" % (i+1))
+            plt.xlabel("Yaw rate")
+            plt.ylabel("Rate of change of yaw rate")
+            plt.grid(b=True)
 
     plt.show()
 
 
 def regress(g, PLOT):
 
-    t, y1, y2, w1, w2, a1, a2 = getFiltered(g, False)
+    t, y, w, a = getFiltered(g, True)
 
-    n = w1.shape[0] 
-    mud = np.zeros(n)
-    maxd = np.zeros(n)
-    mind = np.zeros(n)
-    muw = np.zeros(n)
-    maxw = np.zeros(n)
-    minw = np.zeros(n)
-    d = np.zeros(n)
+    for i in xrange(len(y)):
 
-    print "First axis:"
+        print "For gyro ", (i+1)
 
-    for i in xrange(2, n):
-        w = w1[max(0, i-5):i] 
-        diff = np.diff(w)
+        n = w[i].shape[0]
+        mud = np.zeros(n)
+        maxd = np.zeros(n)
+        mind = np.zeros(n)
+        muw = np.zeros(n)
+        maxw = np.zeros(n)
+        minw = np.zeros(n)
+        d = np.zeros(n)
 
-        mud[i] = np.mean(diff)
-        maxd[i] = np.max(diff)
-        mind[i] = np.min(diff)
+        for i in xrange(2, n):
+            omega = w[i][max(0, i-5):i]
+            diff = np.diff(omega)
 
-        muw[i] = np.mean(w)
-        maxw[i] = np.max(w)
-        minw[i] = np.min(w)
+            mud[i] = np.mean(diff)
+            maxd[i] = np.max(diff)
+            mind[i] = np.min(diff)
 
-        d[i] = w[-1]-w[0]
+            muw[i] = np.mean(omega)
+            maxw[i] = np.max(omega)
+            minw[i] = np.min(omega)
 
-    model = sm.OLS(a1[2:], np.column_stack((w1[1:-1], mud[2:],
-                                        )))
-    results = model.fit()
-    print results.summary()
+            d[i] = omega[-1]-omega[0]
 
-    #print "Params are:", results.params
-    print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
+        model = sm.OLS(a[i][2:], np.column_stack((w[i][1:-1], mud[2:],
+                                              )))
+        results = model.fit()
+        print results.summary()
 
-    if PLOT != 0:
-        plt.figure()
-        plt.hist(results.resid, bins=200)
-        plt.title("Residual distribution")
+        #print "Params are:", results.params
+        print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
 
-    print "Second axis:"
+        if PLOT != 0:
+            plt.close()
 
-    n = w2.shape[0] 
-    mud = np.zeros(n)
-    maxd = np.zeros(n)
-    mind = np.zeros(n)
-    muw = np.zeros(n)
-    maxw = np.zeros(n)
-    minw = np.zeros(n)
-    d = np.zeros(n)
+            plt.figure()
+            plt.hist(results.resid, bins=200)
+            plt.title("Residual distribution")
 
-    for i in xrange(2, n):
-        w = w2[max(0, i-5):i] 
-        diff = np.diff(w)
-
-        mud[i] = np.mean(diff)
-        maxd[i] = np.max(diff)
-        mind[i] = np.min(diff)
-
-        muw[i] = np.mean(w)
-        maxw[i] = np.max(w)
-        minw[i] = np.min(w)
-
-        d[i] = w[-1]-w[0]
-
-    model = sm.OLS(a2[2:], np.column_stack((w2[1:-1], mud[2:],
-                                        )))
-    results = model.fit()
-    print results.summary()
-
-    #print "Params are:", results.params
-    print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
-    
-    if PLOT != 0:
-        plt.figure()
-        plt.hist(results.resid, bins=200)
-        plt.title("Residual distribution")
-
-    plt.show()
+            plt.show()
 
 
 def parse(files):
 
-    PLOT = 3
+    PLOT = 1
 
     obs = [list() for i in xrange(len(files))]
 
@@ -291,8 +209,8 @@ def parse(files):
 
                     print "Until observation ", count
 
-                    regress(obs[j], 0)
-                    #plot(obs[j], PLOT)
+                    #regress(obs[j], 0)
+                    plot(obs[j], PLOT)
                     #compareLL(obs[j])
 
                     #return obs[j]
