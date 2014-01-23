@@ -7,7 +7,7 @@ import statsmodels.api as sm
 import itertools
 
 import biasWindow
-biasWindow.windowSize = 35
+biasWindow.windowSize = 10
 
 extreme = 2147483648
 
@@ -60,7 +60,7 @@ def getFiltered(g, filter):
 
             noise = w_raw - w[i]
             print "Noise for gyro ", (i+1)
-            print "[", np.std(noise), ",", np.mean(noise), "]"
+            print "mu=", np.mean(noise), ",sig=", np.std(noise)
 
             plt.figure(i+1)
             plt.hist(noise, bins=200)
@@ -83,11 +83,11 @@ def plot(g, PLOT):
 
         print "Gryo # ", (i+1)
 
-        print "Theta: [", np.min(y[i]), ",", np.max(y[i]), "]"
+        print "Theta: mu=", np.min(y[i]), ",sig=", np.max(y[i])
 
-        print "Omega: [", np.mean(w[i]), ",", np.std(w[i]), "]"
+        print "Omega: mu=", np.mean(w[i]), ",sig=", np.std(w[i])
 
-        print "Alpha: [", np.mean(a[i]), ",", np.std(a[i]), "]"
+        print "Alpha: mu=", np.mean(a[i]), ",sig=", np.std(a[i])
 
         if PLOT == 1:
 
@@ -148,22 +148,22 @@ def regress(g, PLOT):
         minw = np.zeros(n)
         d = np.zeros(n)
 
-        for i in xrange(2, n):
-            omega = w[i][max(0, i-5):i]
-            diff = np.diff(omega)
+        for j in xrange(2, n):
+            omega = w[i][max(0, j-5):j]
+            alpha = a[i][max(0, j-5):j]
 
-            mud[i] = np.mean(diff)
-            maxd[i] = np.max(diff)
-            mind[i] = np.min(diff)
+            mud[j] = np.mean(alpha)
+            maxd[j] = np.max(alpha)
+            mind[j] = np.min(alpha)
 
-            muw[i] = np.mean(omega)
-            maxw[i] = np.max(omega)
-            minw[i] = np.min(omega)
+            muw[j] = np.mean(omega)
+            maxw[j] = np.max(omega)
+            minw[j] = np.min(omega)
 
-            d[i] = omega[-1]-omega[0]
+            d[j] = omega[-1]-omega[0]
 
         model = sm.OLS(a[i][2:], np.column_stack((w[i][1:-1], mud[2:],
-                                              )))
+                                                  np.ones(w[i][1:-1].shape[0]))))
         results = model.fit()
         print results.summary()
 
@@ -209,9 +209,8 @@ def parse(files):
 
                     print "Until observation ", count
 
-                    #regress(obs[j], 0)
-                    plot(obs[j], PLOT)
-                    #compareLL(obs[j])
+                    regress(obs[j], 0)
+                    #plot(obs[j], PLOT)
 
                     #return obs[j]
 
@@ -220,7 +219,6 @@ def parse(files):
             #print "Until observation ", count
             #regress(obs[j])
             #plot(obs[j], PLOT)
-            #compareLL(obs[j])
 
             obs[j] = []
 
@@ -229,8 +227,7 @@ def parse(files):
     return obs
 
 if __name__ == "__main__":
-    files = ['../data/pimu_1.csv', '../data/pimu_2.csv',
-             '../data/pimu_3.csv']
+    files = ['../data/pimu_1.csv', '../data/pimu_3.csv']
 
     #files = ['../data/pimu_2.csv']
 
