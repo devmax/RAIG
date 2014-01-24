@@ -62,11 +62,14 @@ def getFiltered(g, filter):
             print "Noise for gyro ", (i+1)
             print "mu=", np.mean(noise), ",sig=", np.std(noise)
 
-            plt.figure(i+1)
-            plt.hist(noise, bins=200)
-            plt.title("Noise distribution for gyro %d" % (i+1))
+            if False:
+                plt.figure(i+1)
+                plt.hist(noise, bins=200)
+                plt.title("Noise distribution for gyro %d" % (i+1))
 
-        a[i][1:] = np.divide(np.diff(w[i]), dt)
+        a[i][1:] = np.diff(w[i]) # just to make sure the regression
+                                 # problem is well conditioned
+        # a[i][1:] = np.divide(np.diff(w[i]), dt)
 
     plt.show()
 
@@ -162,7 +165,7 @@ def regress(g, PLOT):
 
             d[j] = omega[-1]-omega[0]
 
-        model = sm.OLS(a[i][2:], np.column_stack((w[i][1:-1], mud[2:],
+        model = sm.OLS(a[i][2:], np.column_stack((w[i][1:-1],# mud[2:],
                                                   np.ones(w[i][1:-1].shape[0]))))
         results = model.fit()
         print results.summary()

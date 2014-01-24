@@ -48,6 +48,8 @@ class Viterbi():
         self.sigmaW = sigmaW
         self.sigmaB = sigmaB
 
+        self.theta = [0., -0.01, 0.75]
+
         self.Tb = stats.norm(0, sigmaB)
 
         self.N = self.obs.shape[1]
@@ -89,12 +91,14 @@ class Viterbi():
 
         return -(np.log(sigma)+0.5*((x-mu)/sigma)**2)
 
-    def getBiasTrans(self, init, final):
+    def getBiasTrans(self, init, final, mu):
         """
         """
         #delB = final - init
         #prob = self.getProb(delB, 0, self.sigmaB, 0.00001)
-        return self.logProb(final, 0.8*init, 0.09)
+
+        return self.logProb(final-init, self.theta[0] +
+                            self.theta[1]*init + self.theta[2]*mu, 0.0068)
 
     def iterate(self, t):
         p_ml = -1e10

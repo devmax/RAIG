@@ -3,6 +3,35 @@ import math
 import matplotlib.pyplot as plt
 
 
+class Particle:
+
+    def __init__(self, w, b):
+
+        self.dim = b.shape[0]
+
+        self.w = w
+        self.b = b
+
+        self.prev = [[0.0, 0.0, 0.0, 0.0, 0.0]]*self.dim
+
+    def predict(self, dw, db):
+
+        self.w += dw
+        self.b += db
+
+        for i in xrange(self.dim):
+            self.prev[i].pop(0)
+            self.prev[i].append(db[i])
+
+    def getMean(self):
+
+        return np.array([np.mean(self.prev[i]) for i in xrange(self.dim)])
+
+    def getHyp(self):
+
+        return self.w + self.b
+
+
 class ParticleFilter:
 
     def __init__(self, Np, dim):
@@ -10,7 +39,8 @@ class ParticleFilter:
         self.Np = Np
         self.dim = dim
 
-        self.particles = np.empty([self.dim+1, self.Np], dtype=float)
+        self.particles = []
+
         self.w = np.ones(self.Np)
 
         self.process = []
@@ -18,30 +48,31 @@ class ParticleFilter:
     def setProcessModel(self, omega, bias):
 
         self.process = [omega]  # omega is a tuple
-        self.process.extend(bias)  # bias is a 'dim'-d list of tuples
+        self.process.append(bias)  # bias is a 'dim'-d list of tuples
 
     def setMeasNoise(self, meas):
 
-        self.meas = meas  # meas should be a 'dim'-d list of tuples
+        self.meas = meas  # meas should be a float, which is the
+                          # variance of the noise Gaussian
 
     def populateInitial(self, omega, obs):
 
-        # omega should be a list/tuple of two values - mean and variance
-        self.particles[0] = np.random.normal(omega[0], omega[1], self.Np)
+        self.particles = []
 
-        Z = obs.reshape(self.dim, 1)
+        for i in xrange(self.Np):
+            w = np.random.normal(omega[0], omega[1])
+            b = np.random.normal(obs-w, self.meas)
 
-        for i in xrange(self.dim):
-            self.particles[i+1] = np.random.normal(Z[i]-self.particles[i+1], self.meas[i][1])
+            self.particles.append(Particle(w, b))
 
     def draw(self, weights, choices, count):
 
-        N = choices.shape[1]
+        N = len(choices)
         w_max = max(weights)
         idx = np.random.randint(0, N-1)
         beta = 0
 
-        samples = np.empty_like(choices)
+        samples = []
 
         for i in xrange(count):
             beta += np.random.uniform(0, 2*w_max)
@@ -49,22 +80,24 @@ class ParticleFilter:
                 beta -= weights[idx]
                 idx = (idx + 1) % N
 
-            samples[:, i] = choices[:, idx]
+            samples.append(choices[idx])
 
         return samples
 
     def predict(self):
 
-        self.particles[0] += np.random.normal(self.process[0][0], self.process[0][1],
-                                              self.Np)
+        for i in xrange(self.Np):
 
-        for j in xrange(self.dim):
-            self.particles[j+1] *= self.process[j+1][0]
-            self.particles[j+1] += np.random.normal(0, self.process[j+1][1], self.Np)
+            dw = np.random.normal(self.process[0][0], self.process[0][1])
+            db = self.process[1][0]*self.particles[i].b
+            db += self.process[1][1]*self.particles[i].getMean()
+
+            self.particles[i].predict(dw, db)
 
     def Gaussian(self, x, mu, sigma):
         try:
-            return (1/(math.sqrt(2)*sigma))*math.exp((-0.5)*pow(((x-mu)/sigma), 2))
+            return (1/(math.sqrt(2)*sigma))*math.exp((-0.5)*pow(((x-mu)/sigma),
+                                                                2))
         except OverflowError:
             print "(", x, ";", mu, ",", sigma, ")"
 
@@ -74,26 +107,29 @@ class ParticleFilter:
 
         g = np.vectorize(self.Gaussian)
 
-        for i in xrange(self.dim):
-            p = g(Z[i], self.particles[0]+self.particles[i+1], self.meas[i][1])
-            self.w = np.dot(self.w, p)
+        for j in xrange(self.Np):
+            p = g(Z, self.particles[j].getHyp(), self.meas)
+
+            self.w[j] *= np.prod(p)
 
     def getEstimate(self):
 
-        return self.particles[:, np.argmax(self.w)]
+        idx = np.argmax(self.w)
+
+        return self.particles[idx].w
 
     def resample(self):
 
-        self.particles = np.copy(self.draw(self.w, self.particles, self.Np))
+        self.particles = self.draw(self.w, self.particles, self.Np)
         self.w = np.ones(self.Np)
 
-    def run(self, obs, omega, b):
+    def run(self, obs, omega):
 
-        self.setProcessModel((0.0, 0.0085), [(0.8, 0.09)]*self.dim)
-        self.setMeasNoise([(0.0, 0.009)]*self.dim)
+        self.setProcessModel((0.0, 0.0085), (-0.003, 0.0, 0.0067))
+        self.setMeasNoise(0.095)
         self.populateInitial([omega[0], 0.005], obs[:, 0])
 
-        estimate = np.zeros([obs.shape[1]-1, obs.shape[0]+1])
+        estimate = np.zeros([obs.shape[1]-1])
         Z = obs.T
 
         N = obs.shape[1]
@@ -120,7 +156,7 @@ class ParticleFilter:
 
         plt.subplot(211)
         plt.plot(omega[:N], 'g', label="Ground truth")
-        plt.plot(estimate[:, 0], colors[0], label="PF Estimate")
+        plt.plot(estimate, colors[0], label="PF Estimate")
         #plt.plot(b.T, label="Bias")
         if MEAN:
             plt.plot(m, 'b', label="Mean")
@@ -130,7 +166,7 @@ class ParticleFilter:
         plt.ylabel("Angular velocity")
 
         plt.subplot(212)
-        plt.plot(omega[:N-1]-estimate[:, 0], 'r', label="Estimation Error")
+        plt.plot(omega[:N-1]-estimate, 'r', label="Estimation Error")
         if MEAN:
             plt.plot(omega[:N-1]-m[:-1], 'b', label="Mean estim. Error")
         plt.title("Particle filter error")
@@ -154,7 +190,7 @@ class ParticleFilter:
 
             self = ParticleFilter(500, num)
 
-            self.setProcessModel((0.0, 0.0085), [(0.0, 0.00015)]*self.dim)
+            self.setProcessModel((0.0, 0.0085), [(-0.003, 0.0085)]*self.dim)
             self.setMeasNoise([(0.0, 0.005)]*self.dim)
             self.populateInitial([0, 0.1], obs[:num, 0])
 
