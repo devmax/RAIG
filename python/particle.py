@@ -65,6 +65,14 @@ class ParticleFilter:
 
             self.particles.append(Particle(w, b))
 
+    def getWs(self):
+
+        return [particle.w for particle in self.particles]
+
+    def getParticles(self):
+
+        return np.array([particle.getHyp() for particle in self.particles])
+
     def draw(self, weights, choices, count):
 
         N = len(choices)
@@ -125,7 +133,7 @@ class ParticleFilter:
 
     def run(self, obs, omega):
 
-        self.setProcessModel((0.0, 0.0085), (-0.003, 0.0, 0.0067))
+        self.setProcessModel((0.0, 0.0085), (-0.003, 0.0, 0.0085))
         self.setMeasNoise(0.095)
         self.populateInitial([omega[0], 0.005], obs[:, 0])
 
@@ -134,6 +142,8 @@ class ParticleFilter:
 
         N = obs.shape[1]
 
+        error = []
+
         for i in xrange(N-1):
             self.predict()
             self.measure(Z[i+1])
@@ -141,6 +151,8 @@ class ParticleFilter:
             estimate[i] = self.getEstimate()
 
             self.resample()
+
+            error.append(omega[i+1]-estimate[i])
 
         colors = ['r', 'b', 'y', 'c', 'm']
 
@@ -166,7 +178,7 @@ class ParticleFilter:
         plt.ylabel("Angular velocity")
 
         plt.subplot(212)
-        plt.plot(omega[:N-1]-estimate, 'r', label="Estimation Error")
+        plt.plot(error, 'r', label="Estimation Error")
         if MEAN:
             plt.plot(omega[:N-1]-m[:-1], 'b', label="Mean estim. Error")
         plt.title("Particle filter error")
