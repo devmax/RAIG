@@ -12,7 +12,10 @@ class Particle:
         self.w = w
         self.b = b
 
-        self.prev = [[0.0, 0.0, 0.0, 0.0, 0.0]]*self.dim
+        self.prev = []
+
+        for i in xrange(self.dim):
+            self.prev.append([0.0, 0.0, 0.0, 0.0, 0.0])
 
     def predict(self, dw, db):
 
@@ -30,6 +33,10 @@ class Particle:
     def getHyp(self):
 
         return self.w + self.b
+
+    def getBiasDiff(self):
+
+        return np.array([self.prev[i][-1] for i in xrange(self.dim)])
 
 
 class ParticleFilter:
@@ -60,7 +67,7 @@ class ParticleFilter:
         self.particles = []
 
         for i in xrange(self.Np):
-            w = np.random.normal(omega[0], omega[1])
+            w = omega[0]  # np.random.normal(omega[0], omega[1])
             b = np.random.normal(obs-w, self.meas)
 
             self.particles.append(Particle(w, b))
@@ -99,6 +106,7 @@ class ParticleFilter:
             dw = np.random.normal(self.process[0][0], self.process[0][1])
             db = self.process[1][0]*self.particles[i].b
             db += self.process[1][1]*self.particles[i].getMean()
+            db += np.random.normal(0, self.process[1][2], self.dim)
 
             self.particles[i].predict(dw, db)
 
@@ -137,22 +145,30 @@ class ParticleFilter:
         self.setMeasNoise(0.095)
         self.populateInitial([omega[0], 0.005], obs[:, 0])
 
-        estimate = np.zeros([obs.shape[1]-1])
+        estimate = np.zeros([obs.shape[1]])
         Z = obs.T
 
         N = obs.shape[1]
 
         error = []
 
-        for i in xrange(N-1):
+        for i in xrange(1, N):
             self.predict()
-            self.measure(Z[i+1])
+            self.measure(Z[i])
+
+            dw_true = omega[i]-omega[i-1]
+            db_true = (Z[i]-omega[i]) - (Z[i-1]-omega[i-1])
+
+            idx = np.argmax(self.w)
+
+            dw = estimate[i]-estimate[i-1]
+            db = self.particles[idx].getBiasDiff()
 
             estimate[i] = self.getEstimate()
 
-            self.resample()
-
             error.append(omega[i+1]-estimate[i])
+
+            self.resample()
 
         colors = ['r', 'b', 'y', 'c', 'm']
 
