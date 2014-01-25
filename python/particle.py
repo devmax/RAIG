@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import copy
 
 
 class Particle:
@@ -95,7 +96,7 @@ class ParticleFilter:
                 beta -= weights[idx]
                 idx = (idx + 1) % N
 
-            samples.append(choices[idx])
+            samples.append(copy.deepcopy(choices[idx]))
 
         return samples
 
@@ -141,7 +142,7 @@ class ParticleFilter:
 
     def run(self, obs, omega):
 
-        self.setProcessModel((0.0, 0.0085), (-0.003, 0.0, 0.0085))
+        self.setProcessModel((0.0, 0.0085), (-0.01, 0.75, 0.0067))
         self.setMeasNoise(0.095)
         self.populateInitial([omega[0], 0.005], obs[:, 0])
 
@@ -166,7 +167,7 @@ class ParticleFilter:
 
             estimate[i] = self.getEstimate()
 
-            error.append(omega[i+1]-estimate[i])
+            error.append(omega[i]-estimate[i])
 
             self.resample()
 
