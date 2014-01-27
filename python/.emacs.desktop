@@ -1,0 +1,62 @@
+;; -*- mode: emacs-lisp; coding: emacs-mule; -*-
+;; --------------------------------------------------------------------------
+;; Desktop File for Emacs
+;; --------------------------------------------------------------------------
+;; Created Sat Jan 25 18:47:57 2014
+;; Desktop file format version 206
+;; Emacs version 24.3.1
+
+;; Global section:
+(setq desktop-missing-file-warning nil)
+(setq tags-file-name nil)
+(setq tags-table-list nil)
+(setq search-ring '("self.particles" "sigmaB"))
+(setq regexp-search-ring nil)
+(setq register-alist nil)
+(setq file-name-history '("~/Documents/RAIG/python/" "/home/dev/Documents/RAIG/python/Simulator.py" "/home/dev/Documents/RAIG/python/subsample.py" "/home/dev/Documents/RAIG/python/particle.py" "/home/dev/Documents/RAIG/python/pimuparse.py" "/home/dev/Documents/RAIG/python/particle.py" "/home/dev/Documents/RAIG/python/pimuparse.py" "/home/dev/Documents/RAIG/python/Viterbi.py" "/home/dev/Documents/RAIG/python/pimuparse.py"))
+
+;; Buffer section -- buffers listed in same order as in buffer list:
+(desktop-create-buffer 206
+  "/home/dev/Documents/RAIG/python/subsample.py"
+  "subsample.py"
+  'python-mode
+  '(flycheck-mode google-this-mode auto-complete-mode autopair-mode)
+  2114
+  '(1366 nil)
+  nil
+  nil
+  '((tab-width . 8) (indent-tabs-mode) (buffer-file-coding-system . undecided-unix)))
+
+(desktop-create-buffer 206
+  "/home/dev/Documents/RAIG/python/pimuparse.py"
+  "pimuparse.py"
+  'python-mode
+  '(flycheck-mode google-this-mode auto-complete-mode autopair-mode yas-minor-mode)
+  914
+  '(3951 nil)
+  nil
+  nil
+  '((tab-width . 8) (indent-tabs-mode) (buffer-file-coding-system . undecided-unix)))
+
+(desktop-create-buffer 206
+  "/home/dev/Documents/RAIG/python/particle.py"
+  "particle.py"
+  'python-mode
+  '(flycheck-mode google-this-mode auto-complete-mode autopair-mode)
+  2481
+  '(4028 nil)
+  nil
+  nil
+  '((tab-width . 8) (indent-tabs-mode) (buffer-file-coding-system . undecided-unix)))
+
+(desktop-create-buffer 206
+  "/home/dev/Documents/RAIG/python/Viterbi.py"
+  "Viterbi.py"
+  'python-mode
+  '(flycheck-mode google-this-mode auto-complete-mode autopair-mode)
+  2492
+  '(1328 nil)
+  nil
+  nil
+  '((tab-width . 8) (indent-tabs-mode) (buffer-file-coding-system . undecided-unix)))
+

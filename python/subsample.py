@@ -1,12 +1,11 @@
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
-from pandas.tools.plotting import autocorrelation_plot
-from scipy import stats
 import statsmodels.api as sm
 import itertools
 
 extreme = 2147483648
+window = 11
 
 
 def normalize(dy):
@@ -21,7 +20,10 @@ def normalize(dy):
     return dy
 
 
-def getFiltered(g, filter):
+# subsample the omega readings over a window size, and return the new
+# subsampled omega as well as its diff array
+
+def getFiltered(g, PLOT):
 
     if type(g) == list:
         g = np.array(g)
@@ -32,6 +34,10 @@ def getFiltered(g, filter):
     y = [g[:, 2], g[:, 6]]
     t = g[:, 0]/1.0e6
 
+    subsize = int(t.shape[0]/window)
+
+    t = t[:subsize*window]
+
     dt = np.diff(t)
 
     clamp = np.vectorize(normalize)
@@ -39,47 +45,48 @@ def getFiltered(g, filter):
     plt.close("all")
 
     for i in xrange(len(y)):
-        w.append(np.zeros_like(t))
-        a.append(np.zeros_like(t))
 
-        dy = np.zeros_like(t)
+        y[i] = y[i][:subsize*window]
+
+        w.append(np.zeros(subsize*window))
+        a.append(np.zeros(subsize))
+
+        dy = np.zeros_like(y[i])
 
         dy[1:] = clamp(np.diff(y[i]))/1.0e6
 
         w[i][1:] = np.divide(dy[1:], dt)
 
-        if filter:
+        w_raw = w[i][window/2::window]
+        w[i] = np.mean(w[i].reshape(-1, window), 1)
+        y[i] = np.mean(y[i].reshape(-1, window), 1)
 
-            w_raw = np.copy(w[i])
-            w[i] =\
-                   np.array(list(itertools.islice(biasWindow.centeredMean(w_raw),
-                                                  w_raw.shape[0])))
+        a[i][1:] = np.diff(w[i])  # acceleration here is not divided
+                                  # by dt, to make the regression well
+                                  # conditioned
 
-            noise = w_raw - w[i]
-            print "Noise for gyro ", (i+1)
-            print "mu=", np.mean(noise), ",sig=", np.std(noise)
+        noise = w_raw - w[i]
 
-            if False:
-                plt.figure(i+1)
-                plt.hist(noise, bins=200)
-                plt.title("Noise distribution for gyro %d" % (i+1))
+        if PLOT != 0:
 
-        a[i][1:] = np.diff(w[i]) # just to make sure the regression
-                                 # problem is well conditioned
-        # a[i][1:] = np.divide(np.diff(w[i]), dt)
+            plt.figure()
+            plt.hist(noise, bins=250)
+            plt.title("Gaussian Noise distribution")
+
+        print "Gaussian noise:(mu, sig)=", np.mean(noise), np.std(noise)
 
     plt.show()
+
+    t = np.mean(t.reshape(-1, window), 1)
 
     return t, y, w, a
 
 
-def plot(g, PLOT):
-
-    t, y, w, a = getFiltered(g, True)
+def plot(t, y, w, a, PLOT):
 
     plt.close("all")
 
-    for i in xrange(len(y)):
+    for i in xrange(len(w)):
 
         print "Gryo # ", (i+1)
 
@@ -131,11 +138,11 @@ def plot(g, PLOT):
     plt.show()
 
 
-def regress(g, PLOT):
+def regress(subsampled, PLOT):
 
-    t, y, w, a = getFiltered(g, True)
+    t, w, a = subsampled[0], subsampled[1], subsampled[2]
 
-    for i in xrange(len(y)):
+    for i in xrange(len(w)):
 
         print "For gyro ", (i+1)
 
@@ -168,7 +175,7 @@ def regress(g, PLOT):
         print results.summary()
 
         #print "Params are:", results.params
-        print "Noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
+        print "Residual noise params (mu, sigma):", np.mean(results.resid), np.std(results.resid)
 
         if PLOT != 0:
             plt.close()
@@ -182,9 +189,11 @@ def regress(g, PLOT):
 
 def parse(files):
 
-    PLOT = 1
+    PLOT = 0
 
-    obs = [list() for i in xrange(len(files))]
+    obs = []
+
+    subsampled = [list() for i in xrange(len(files))]
 
     for j in xrange(len(files)):
 
@@ -192,39 +201,46 @@ def parse(files):
         print "*"*50
 
         with open(files[j]) as datafile:
+
+            subsampled[j].append(np.array([]))  # t
+            subsampled[j].append([np.array([]), np.array([])])  # w
+            subsampled[j].append([np.array([]), np.array([])])  # a
+
             data = csv.reader(datafile)
             data.next()
 
             count = 0
 
-            for i in xrange(int(20.91e3)):
+            for i in xrange(int(20.e3)):
                 data.next()
 
             for row in data:
-                obs[j].append([float(item) for item in row])
+                obs.append([float(item) for item in row])
 
                 count += 1
+                if count > 1.0e7:
+                    break
 
-                if count % 3.0e6 == 0:
+                if count % int(window*2.0e5) == 0 or count >= 1.0e7:
 
                     print "Until observation ", count
 
-                    regress(obs[j], 0)
-                    #plot(obs[j], PLOT)
+                    t, y, w, a = getFiltered(obs, PLOT)
 
-                    #return obs[j]
+                    subsampled[j][0] = np.append(subsampled[j][0], t)
+                    subsampled[j][1][0] = np.append(subsampled[j][1][0], w[0])
+                    subsampled[j][1][1] = np.append(subsampled[j][1][1], w[1])
+                    subsampled[j][2][0] = np.append(subsampled[j][2][0], a[0])
+                    subsampled[j][2][1] = np.append(subsampled[j][2][1], a[1])
 
-                    obs[j] = []
+                    obs = []
 
-            #print "Until observation ", count
-            #regress(obs[j])
-            #plot(obs[j], PLOT)
-
-            obs[j] = []
+            #plot(subsampled, PLOT)
+            regress(subsampled[j], PLOT)
 
             print "\n"
 
-    return obs
+    return subsampled
 
 if __name__ == "__main__":
     files = ['../data/pimu_1.csv', '../data/pimu_3.csv']
