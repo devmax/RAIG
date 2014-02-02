@@ -5,3 +5,5 @@ build/*
 bin/
 *.csv
 *.class
+*.txt
+data/*

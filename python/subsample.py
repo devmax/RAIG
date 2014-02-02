@@ -169,8 +169,8 @@ def regress(subsampled, PLOT):
 
             d[j] = omega[-1]-omega[0]
 
-        model = sm.OLS(a[i][2:], np.column_stack((w[i][1:-1],# mud[2:],
-                                                  np.ones(w[i][1:-1].shape[0]))))
+        model = sm.OLS(a[i][2:], np.column_stack((w[i][1:-1])))  # , mud[2:],
+                                                  #np.ones(w[i][1:-1].shape[0]))))
         results = model.fit()
         print results.summary()
 

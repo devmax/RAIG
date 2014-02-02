@@ -8,18 +8,26 @@ def separate(files):
     data = [list() for i in xrange(len(files))]
 
     for j in range(len(files)):
+        count = 0
         with open(files[j]) as datafile:
             obs = csv.reader(datafile)
             #obs.next()
             for sublist in obs:
-                data[j].append([(item) for item in sublist])
+                count += 1
+                data[j].append([float(item) for item in sublist])
+                #if count > 1.0e6:
+                #    break
+            data[j] = np.array(data[j])
+            data[j][:, 0] /= 1.0e6
+            data[j][:, 1] /= 131.0
 
-    print "Shape is ", len(data), "x", len(data[0])
+    print "Shape is ", len(data), "x", data[0].shape
 
     return data
 
 if __name__ == "__main__":
-    files = ['gyrolog.txt']
+    files = ['../data/bias0.txt', '../data/bias1.txt',
+             '../data/bias2.txt']
     data = separate(files)
 
     PLOT = False
@@ -28,9 +36,8 @@ if __name__ == "__main__":
         for i in xrange(len(files)):
             g = np.array(data[i])
 
-            dyaw = g[:, 2]*0.0001309
-            t = g[:, -1]/1000.0
-            t = t - t[0]
+            dyaw = g[:, 1]
+            t = g[:, 0]/1.0e6
 
             yaw = np.zeros_like(dyaw)
 
@@ -39,9 +46,16 @@ if __name__ == "__main__":
 
             yaw = (yaw*180/np.pi) % 360
 
-            plt.figure()
-            plt.plot(t, dyaw)
+            #plt.figure()
+            #plt.title("Time vs Rate")
+            #plt.plot(t, dyaw)
 
             plt.figure()
-            plt.plot(t, yaw)
+            plt.title("Time")
+            plt.plot(t)
+
+            plt.figure()
+            plt.title("Rate")
+            plt.plot(dyaw)
+
             plt.show()
