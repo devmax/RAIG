@@ -18,33 +18,24 @@ def separate(files):
                 #if count > 1.0e6:
                 #    break
             data[j] = np.array(data[j])
-            data[j][:, 0] /= 1.0e6
-            data[j][:, 1] /= 131.0
 
     print "Shape is ", len(data), "x", data[0].shape
 
     return data
 
 if __name__ == "__main__":
-    files = ['../data/bias0.txt', '../data/bias1.txt',
-             '../data/bias2.txt']
+    files = ['../data/big2_regaa']
+
     data = separate(files)
 
-    PLOT = False
+    PLOT = True
 
     if PLOT:
         for i in xrange(len(files)):
             g = np.array(data[i])
 
-            dyaw = g[:, 1]
-            t = g[:, 0]/1.0e6
-
-            yaw = np.zeros_like(dyaw)
-
-            for i in xrange(1, dyaw.shape[0]):
-                yaw[i] = yaw[i-1] + (t[i]-t[i-1])*dyaw[i-1]
-
-            yaw = (yaw*180/np.pi) % 360
+            dyaw = g[:1.0e6, 1]
+            t = g[:1.0e6, 0]
 
             #plt.figure()
             #plt.title("Time vs Rate")

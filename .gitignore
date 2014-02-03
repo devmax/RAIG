@@ -1,9 +1,11 @@
 *.pyc
 *.so
 *.c
-build/*
+build/
 bin/
 *.csv
 *.class
 *.txt
-data/*
+*.out
+*.so
+data/
