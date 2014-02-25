@@ -34,11 +34,18 @@ def separate(files=f, maxCount=None, maxFiles=9):
     return data
 
 if __name__ == "__main__":
+<<<<<<< HEAD
 
     files = ['xaa', 'xab', 'xac', 'xad', 'xae', 'xaf']
 
     data = separate(files=files)
 
+=======
+    files = ['../data/big2_regaa']
+
+    data = separate(files)
+
+>>>>>>> 4664a91daa215b619bebb03d44d5a1e894575ba0
     PLOT = True
 
     if PLOT:
@@ -47,6 +54,17 @@ if __name__ == "__main__":
 
             dyaw = g[:1.0e6, 1]
             t = g[:1.0e6, 0]
+<<<<<<< HEAD
+=======
+
+            #plt.figure()
+            #plt.title("Time vs Rate")
+            #plt.plot(t, dyaw)
+
+            plt.figure()
+            plt.title("Time")
+            plt.plot(t)
+>>>>>>> 4664a91daa215b619bebb03d44d5a1e894575ba0
 
             plt.figure()
             plt.title("Time vs Rate")

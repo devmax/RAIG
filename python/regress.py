@@ -13,7 +13,11 @@ def regress(data, PLOT):
 
         print "For gyro ", (i+1)
 
+<<<<<<< HEAD
         model = sm.OLS(dw, np.ones(w.shape[0]))  # np.column_stack((w, np.sign(w))))
+=======
+        model = sm.OLS(dw, np.column_stack((w, np.sign(w))))  # np.ones(w.shape[0]))))
+>>>>>>> 4664a91daa215b619bebb03d44d5a1e894575ba0
         results = model.fit()
 
         print results.summary()
@@ -32,9 +36,14 @@ def regress(data, PLOT):
 
 if __name__ == "__main__":
 
+<<<<<<< HEAD
     files = ['/home/dev/Documents/RAIG/data/test1_2_reg.txt',
              '/home/dev/Documents/RAIG/data/test2_2_reg.txt',
              '/home/dev/Documents/RAIG/data/test3_2_reg.txt']
+=======
+    files = ['../data/big0_reg.txt', '../data/big1_reg.txt',
+             '../data/big2_reg.txt']
+>>>>>>> 4664a91daa215b619bebb03d44d5a1e894575ba0
 
     data = parse.separate(files)
 

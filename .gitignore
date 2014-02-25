@@ -8,8 +8,12 @@ bin/
 *.txt
 *.out
 *.so
+<<<<<<< HEAD
 data/
 /java/raignet/nbproject/private/
 /java/raig/nbproject/private/
 /java/raig/dist/
 collect/
+=======
+data/
+>>>>>>> 4664a91daa215b619bebb03d44d5a1e894575ba0
