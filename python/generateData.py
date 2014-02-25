@@ -46,8 +46,8 @@ def generate(num, samples):
     """
     Generate bias and omega
     """
-    sigmaB = np.random.normal(0.00015, 0.000015, num)
-    sigmaW = 0.0085
+    sigmaB = np.random.normal(0.05, 0.01, num)
+    sigmaW = 0.4
     #sigmaN = 0.03
 
     initB = np.random.normal(0.00025, 0.25, num)
@@ -121,11 +121,11 @@ def sanityCheck(num, samples):
 
 if __name__ == "__main__":
 
-    num = 4
+    num = 6
 
-    bias, omega, obs = generateVariant(num, 500000, 1.4)
+    #bias, omega, obs = generateVariant(num, 500000, 1.4)
     #bias, omega, obs = sanityCheck(num, 150000)
-    #bias, omega, obs = generate(num, 150000)
+    bias, omega, obs = generate(num, 150000)
 
     plt.figure()
     plt.plot(obs.T)

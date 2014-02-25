@@ -3,59 +3,54 @@ import matplotlib.pyplot as plt
 import csv
 
 
-def separate(files):
+prefix = '/home/dev/Documents/RAIG/data/'
+f = ['big0ab', 'big1ab', 'big2ab',
+     'big0ac', 'big1ac', 'big2ac',
+     'big0ad', 'big1ad', 'big2ad',
+     'big0ae', 'big1ae', 'big2ae',
+     'big0af', 'big1af', 'big2af',
+     'big0ag', 'big1ag', 'big2ag',
+     'big0ah', 'big1ah', 'big2ah', ]
 
-    data = [list() for i in xrange(len(files))]
 
-    for j in range(len(files)):
+def separate(files=f, maxCount=None, maxFiles=9):
+
+    data = [list() for i in xrange(min(len(files), len(files[:maxFiles])))]
+
+    for j in range(len(data)):
         count = 0
-        with open(files[j]) as datafile:
+        with open(prefix+files[j]) as datafile:
             obs = csv.reader(datafile)
             #obs.next()
             for sublist in obs:
                 count += 1
                 data[j].append([float(item) for item in sublist])
-                #if count > 1.0e6:
-                #    break
+                if maxCount is not None and count >= maxCount:
+                    break
             data[j] = np.array(data[j])
-            data[j][:, 0] /= 1.0e6
-            data[j][:, 1] /= 131.0
 
     print "Shape is ", len(data), "x", data[0].shape
 
     return data
 
 if __name__ == "__main__":
-    files = ['../data/bias0.txt', '../data/bias1.txt',
-             '../data/bias2.txt']
-    data = separate(files)
 
-    PLOT = False
+    files = ['xaa', 'xab', 'xac', 'xad', 'xae', 'xaf']
+
+    data = separate(files=files)
+
+    PLOT = True
 
     if PLOT:
         for i in xrange(len(files)):
             g = np.array(data[i])
 
-            dyaw = g[:, 1]
-            t = g[:, 0]/1.0e6
-
-            yaw = np.zeros_like(dyaw)
-
-            for i in xrange(1, dyaw.shape[0]):
-                yaw[i] = yaw[i-1] + (t[i]-t[i-1])*dyaw[i-1]
-
-            yaw = (yaw*180/np.pi) % 360
-
-            #plt.figure()
-            #plt.title("Time vs Rate")
-            #plt.plot(t, dyaw)
+            dyaw = g[:1.0e6, 1]
+            t = g[:1.0e6, 0]
 
             plt.figure()
-            plt.title("Time")
-            plt.plot(t)
-
-            plt.figure()
-            plt.title("Rate")
-            plt.plot(dyaw)
+            plt.title("Time vs Rate")
+            plt.scatter(t, dyaw)
+            #plt.plot(dyaw)
 
             plt.show()
