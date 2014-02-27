@@ -91,8 +91,8 @@ public class parse
 		double min_r = Double.POSITIVE_INFINITY;
 		double max_r = Double.NEGATIVE_INFINITY;
 
-		double dbias; 
-		double[] prev = new double[3]; // prev mean, min, max
+		double dbias, dt; 
+		double[] prev = new double[4]; // prev t, mean, min, max
 		boolean inited = false;
 
 		while((line = read.readLine()) != null && numread<maxCount){
@@ -120,18 +120,19 @@ public class parse
 			    inited = true;
 			}
 			else{
-			    dbias = sum_r - prev[0];
+			    dbias = sum_r - prev[1];
+			    dt = sum_t - prev[0];
 
 			    try{
 				hist[(int)prev[0]-bMin][(int)dbias-dbMin]++; // increase histogram count				
 			    }
 			    catch(ArrayIndexOutOfBoundsException e){
-				System.out.println("Trying to access "+prev[0]+","+dbias);
+				System.out.println("Trying to access "+prev[1]+","+dbias);
 			    }
 
 
 			    if(writeReg){
-				String out = sum_t+","+prev[0]+","+dbias+","+prev[1]+","+prev[2]; 
+				String out = dt+","+prev[1]+","+dbias+","+prev[2]+","+prev[3]; 
 				// t, mean_b, d(mean_b), min_b, max_b
 
 				writer_reg.write(out);
@@ -141,9 +142,10 @@ public class parse
 			    numwrote++;
 			}
 			
-			prev[0] = sum_r;
-			prev[1] = min_r;
-			prev[2] = max_r;
+			prev[0] = sum_t;
+			prev[1] = sum_r;
+			prev[2] = min_r;
+			prev[3] = max_r;
 			sum_r = sum_t = 0.0;
 			min_r = Double.POSITIVE_INFINITY;
 			max_r = Double.NEGATIVE_INFINITY;
@@ -162,7 +164,7 @@ public class parse
 
 		for(row=0; row<hist.length; row++){
 		    for(col=0; col<hist[row].length-1; col++){
-			writer_hist.write(hist[row][col]+",");
+			writer_hist.write((double)hist[row][col]/numwrote+",");
 		    }
 		    writer_hist.write(hist[row][col]+"\n");
 		}

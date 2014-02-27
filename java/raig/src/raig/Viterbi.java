@@ -18,6 +18,7 @@ class Viterbi
     int[] omega;
     int[][] bias;
     int[][] obs;
+    double[] time;
 
     int[] mean; //the estimate if we simply took a mean of the readings
 
@@ -27,22 +28,25 @@ class Viterbi
 
     int resW = 1; //resolution of state space
     
-    double[] Tw; //transition matrix
+    double[] Tw; //transition matrix for omega
+    double[][][] Tb; //transition matrix for each bias
 
-    int w_lim;
+    int b_lim = 40; //maximum allowed deviation of bias from the mean
+    int db_lim = 25; //maximum change in bias allowed over a single time instant
+
+    int[] b_means; //initial means for the biases
+
+    int w_lim; //limits of the omega
     int[] states;
 
     double[][] V; //matrix to store log-likelihood
     int[][] B; //matrix to store most likely previous state
 
-    int[] seq; //best path sequence
-    int[] seq_backtrack; //best path by backtracking
-
-    double[] v_error; //error between truth and Viterbi estimate
-    double[] m_error; //error between truth and mean estimate
+    //int[] seq; //best path sequence
+    //int[] seq_backtrack; //best path by backtracking
 
     double[] w_model; //our model for the angular velocity
-    double[] b_model; //our model for the bias
+    double[][] b_model; //our model for the bias
 
     private Random rand;
 
@@ -50,15 +54,18 @@ class Viterbi
 
     double scale = 131.0;
 
-    Viterbi(int N, int Ns, double[] w_model, double[] b_model, long seed){
+    DecimalFormat df = new DecimalFormat("###.####");
+    String prefix = "/home/dev/Documents/RAIG/data/";
+    String file = prefix+"results";
+
+    BufferedWriter logger = null;
+
+    Viterbi(int N, int Ns, double[] w_model, double[][] b_model, long seed){
 
 	if(seed == -1) 
 	    rand = new Random();
 	else 
 	    rand = new Random(seed);
-
-	for(int i=0; i<1150; i++)
-	    rand.nextGaussian();
 
 	this.N = N;
 	
@@ -68,17 +75,34 @@ class Viterbi
 	this.b_model = b_model;
 
 	this.obs = new int[this.Ns][this.N];
+	this.bias = new int[this.Ns][this.N];
+	this.time = new double[this.N];
+	this.b_means = new int[this.Ns]; //the mean value of the bias for each sensor
 
-	readBias reader = new readBias(N, Ns);
+	int buffer = 2000; // dirty hack
 
-	this.bias = reader.getBias();
+	readBias reader = new readBias(N+buffer, Ns);
+	int[][] biases = reader.getBias();
+	this.time = reader.getTime(); //the timestamps
 
-	this.generateOmega(this.N);
+	//use first 'buffer' values to get the mean, and the rest as data
+	
+	for(int s=0; s<this.Ns; s++){
+	    for(int i=0; i<this.N+buffer; i++){
+		if(i>=buffer)
+		    this.bias[s][i-buffer] = biases[s][i];
+		else
+		    b_means[s] += biases[s][i];
+	    }
+	    b_means[s] /= buffer;
+	}
 
-	this.mean = new int[N];
+	this.generateOmega(this.N); //generate omega values
+
+	this.mean = new int[N]; //store the naive mean for baseline comparison
 
 	if(bias[0].length != this.omega.length){
-	    System.out.println("Number of observations don't match");
+	    System.out.println("Number of observations don't match!!");
 	    System.exit(0);
 	}
 
@@ -89,15 +113,8 @@ class Viterbi
 	}
 
 	this.Nw = 2*(int)(Math.ceil(this.w_lim/this.resW)) + 1;
-	System.out.println("Generated "+this.Nw+" states");
-	System.out.println("Using "+this.Ns+" sensors for "+
-			   this.N+" observations at a resolution of "+this.resW);
-
-	System.out.println("bias= "+bias.length+" x "+bias[0].length);
-	System.out.println("obs= "+obs.length+" x "+obs[0].length);
-	System.out.println("omega= "+omega.length);
-
 	this.Tw = new double[this.Nw];
+	this.Tb = new double[this.Ns][this.b_lim*2+1][this.db_lim*2+1];
 
 	this.states = new int[this.Nw];
 
@@ -107,20 +124,38 @@ class Viterbi
 	// probability of transitioning from 'r' to 'c'
 	for(int r=0; r<this.Nw; r++)
 	    this.Tw[r] = this.logProb((double)r*this.resW, this.w_model[0],
-				      Math.round(this.w_model[1]*scale));
+				      this.w_model[1]*scale);
 
-	this.V = new double[2][this.Nw];
-	this.B = new int[this.N][this.Nw];
+	// cache transition probabilities for bias
+	for(int s=0; s<this.Ns; s++){
+	    for(int i=0; i<Tb[s].length; i++){
+		int b = i-b_lim;
+		double mu = b*b_model[s%3][0];
+		double sig = b_model[s%3][1];
+		for(int j=0; j<Tb[s][i].length; j++){
+		    int db = j-db_lim;
+		    this.Tb[s][i][j] = this.logProb((double)db, mu, sig);
+		}
+	    }
+	}
+
+	this.V = new double[2][this.Nw]; //store the log probabilities
+	this.B = new int[this.N][this.Nw]; //store the best path for backtracking(can remove)
 
 	for(int i=0; i<Nw; i++)
 	    this.V[0][i] = this.logProb(this.states[i], this.omega[0], 0.5);
 	//this.w_model[1]*scale);
 
-	this.seq = new int[this.N];
-	this.seq_backtrack = new int[this.N];
+	//this.seq = new int[this.N];
+	//this.seq_backtrack = new int[this.N];
 
-	this.v_error = new double[this.N];
-	this.m_error = new double[this.N];
+	System.out.println("Generated "+this.Nw+" states");
+	System.out.println("Using "+this.Ns+" sensors for "+
+			   this.N+" observations at a resolution of "+this.resW);
+
+	System.out.println("bias= "+bias.length+" x "+bias[0].length);
+	System.out.println("obs= "+obs.length+" x "+obs[0].length);
+	System.out.println("omega= "+omega.length);
 
 	if(DEBUG){
 
@@ -198,7 +233,21 @@ class Viterbi
     }
 
     public double getBiasTrans(int init, int fin){
-	return logProb(fin-init, b_model[0], b_model[1]);
+	//return logProb(fin-init, b_model[0], b_model[1]);
+	return logProb(fin-init, 0.0, 7.0);
+    }
+
+    public double getBiasTrans(int sens, int init, int fin){
+	
+	int b_idx = (init-b_means[sens])-(-b_lim);
+	int db_idx = (fin-init) - (-db_lim);
+
+	//System.out.println("Indices for"+init+", "+fin+" are "+b_idx+", "+db_idx);
+	
+	if(b_idx<0 || b_idx>(2*b_lim) || db_idx<0 || db_idx>(2*db_lim))
+	    return Double.NEGATIVE_INFINITY;
+	else
+	    return Tb[sens][b_idx][db_idx];
     }
 
     public void findSequence(){
@@ -229,7 +278,7 @@ class Viterbi
 			int bi = obs[sens][t-1]-states[j];
 			int bf = obs[sens][t]-states[i];
 
-			p += getBiasTrans(bi, bf);
+			p += getBiasTrans(sens, bi, bf);
 		    }
 
 		    if(p > p_max){
@@ -259,9 +308,6 @@ class Viterbi
 		mean[t] += obs[sens][t]-bias[sens][0];    
 
 	    mean[t] /= Ns;
-
-	    v_error[t] = (seq[t]-omega[t]);///scale;
-	    m_error[t] = (mean[t]-omega[t]);///scale;
 
 	    if(DEBUG){
 		System.out.format("GT = %d ,", omega[t]);
@@ -294,15 +340,15 @@ class Viterbi
 	    logger = new BufferedWriter(new FileWriter(file));
 
 	    for(int t=0; t<N; t++){
-		out = df.format(omega[t])+","+df.format(seq[t])+
+		out = time[t]+","+df.format(omega[t])+","+df.format(seq[t])+
 		    ","+df.format(mean[t])+","+df.format(seq_backtrack[t]);
 		logger.write(out);
 		logger.newLine();
 
 		/*
-		out = df.format(v_error[t])+","+df.format(m_error[t]);
-		error.write(out);
-		error.newLine();
+		  out = df.format(v_error[t])+","+df.format(m_error[t]);
+		  error.write(out);
+		  error.newLine();
 		*/
 
 	    }
@@ -317,8 +363,8 @@ class Viterbi
 		    logger.close();
 
 		    /*
-		    error.flush();
-		    error.close();
+		      error.flush();
+		      error.close();
 		    */
 		}catch (IOException e){
 		    e.printStackTrace();
@@ -329,11 +375,17 @@ class Viterbi
 
     public static void main(String[] args){
 
+	if(args.length < 2){
+	    System.out.println("Usage: [no. of observations] [no. of sensors] [seed]");
+	    System.exit(0);
+	}
+
 	int N = Integer.parseInt(args[0]);
 	int Ns = Integer.parseInt(args[1]);
 
 	double[] w_model = new double[]{0.0, 0.1};
-	double[] b_model = new double[]{0.0, 7.0};
+	double[][] b_model = new double[][]{{-0.9, 2.1}, {-0.91, 2.25}, {-0.95, 2.45}};
+	//double[][] b_model = new double[][]{0.0, 7.0};
 
 	Viterbi v;
 
