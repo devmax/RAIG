@@ -24,14 +24,18 @@ public class parse
     int window;
     public final static double scale = 1;//131.0;
 
+    public final static double rollover = Math.pow(2, 32);
+
     int maxCount;
 
-    int bRange;
+    int bRange=35;
     int bMin;
 
-    int dbMin;
+    int dbMin=-25;
 
     int[][] hist;
+
+    int buffer=2000;
 
     //public final static double rollover = Math.pow(2, 32)/1.0E6;
 
@@ -47,8 +51,6 @@ public class parse
 	else
 	    this.maxCount = num;
 
-	bRange = 35;
-	dbMin = -25;
     }
 
     public void windowFitler(){
@@ -80,6 +82,11 @@ public class parse
 
 		read = new BufferedReader(new FileReader(file));
 
+		String[] initial = (read.readLine()).split(delim);
+		double prev_t = Double.parseDouble(initial[0])/1.0E6;
+		double t0 = prev_t;
+
+		System.out.println("\n\n*************************************\n");
 		System.out.println("Processing file "+file);
 
 		int numread = 0;
@@ -94,20 +101,62 @@ public class parse
 		double dbias, dt; 
 		double[] prev = new double[4]; // prev t, mean, min, max
 		boolean inited = false;
+		boolean buffered = false;
+
+		int rollcount = 0;
+
+		String lims="";
+
+		read.readLine();
+		read.mark(10000000);
 
 		while((line = read.readLine()) != null && numread<maxCount){
-		    numread++ ;
-		    
+
 		    String[] row = line.split(delim);
 
 		    double t = Double.parseDouble(row[0])/1.0E6;
 		    double dyaw = Double.parseDouble(row[1]);
+
+		    double delt = t-prev_t;
+		    if(delt < 0){
+			if(delt < -5.0)
+			    System.out.println("Rollover from "+prev_t+"->"+t+",delt="+delt);
+			rollcount++;
+			continue;
+		    }
+
+		    numread++ ;
 		    
 		    sum_t += t;
 		    sum_r += dyaw;
 
+		    prev_t = t;
+
 		    min_r = min_r > dyaw? dyaw: min_r; // minimum in window
 		    max_r = max_r < dyaw? dyaw: max_r; // maximum in window
+
+		    if(!buffered){
+			if(numread < buffer)
+			    continue;
+			else{
+			    sum_r = Math.round(sum_r/(numread*scale));
+
+			    bMin = (int)sum_r-bRange;
+			    buffered = true;
+
+			    prev[1] = sum_r;
+
+			    numread = 0;
+			    sum_r = sum_t = 0.0;
+
+			    lims = "Bias:["+bMin+","+(bMin+2*bRange)+"]\n"+
+				"Dbias:["+dbMin+","+(-dbMin)+"]";
+
+			    System.out.println("Histogram limits are:\n"+lims);
+
+			    read.reset();
+			}
+		    }
 
 		    if(numread%window == 0){
 
@@ -115,8 +164,6 @@ public class parse
 			sum_t /= window;
 
 			if(!inited){
-			    bMin = (int)sum_r-bRange;
-
 			    inited = true;
 			}
 			else{
@@ -124,15 +171,14 @@ public class parse
 			    dt = sum_t - prev[0];
 
 			    try{
-				hist[(int)prev[0]-bMin][(int)dbias-dbMin]++; // increase histogram count				
+				hist[(int)prev[1]-bMin][(int)dbias-dbMin]++; // increase histogram count				
 			    }
 			    catch(ArrayIndexOutOfBoundsException e){
-				System.out.println("Trying to access "+prev[1]+","+dbias);
+				System.out.println("Trying to access "+(prev[1]-bMin)+","+(dbias-dbMin));
 			    }
 
-
 			    if(writeReg){
-				String out = dt+","+prev[1]+","+dbias+","+prev[2]+","+prev[3]; 
+				String out = sum_t+","+prev[1]+","+dbias+","+prev[2]+","+prev[3]; 
 				// t, mean_b, d(mean_b), min_b, max_b
 
 				writer_reg.write(out);
@@ -152,15 +198,13 @@ public class parse
 		    }
 		}
 
-		String lims = "Bias:["+bMin+","+(bMin+2*bRange)+"]\n"+
-		    "Dbias:["+dbMin+","+(-dbMin)+"]";
-
 		int row,col;
 
 		writer_hist.write(lims);
 		writer_hist.newLine();
 
-		System.out.println("Histogram limits are:\n"+lims);
+		System.out.println(rollcount+" bad samples");
+
 
 		for(row=0; row<hist.length; row++){
 		    for(col=0; col<hist[row].length-1; col++){
@@ -201,6 +245,13 @@ public class parse
     }
 
     public static void main(String[] args){
+
+	if(args.length < 1){
+	    System.out.println("Usage: [window size] [number of samples(-1 for all)] "+
+			       "[file 1] .... [file N]");
+
+	    System.exit(0);
+	}
 
 	String prefix = "/home/dev/Documents/RAIG/data/";
 	String[] files = new String[args.length-2];
